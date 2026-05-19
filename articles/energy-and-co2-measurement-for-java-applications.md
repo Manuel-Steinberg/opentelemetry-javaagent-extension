@@ -4,7 +4,7 @@
 
 ## Why Energy Consumption Matters for Software Engineers
 
-The IT industry accounts for roughly 2–4% of global CO2 emissions [1]—comparable to the aviation industry [2]. As software engineers we tend to optimise for throughput, latency, and reliability. Energy efficiency rarely makes it onto the sprint board. But with sustainability regulations tightening across the EU—most notably the Corporate Sustainability Reporting Directive (CSRD) [3]—and customers increasingly scrutinising their digital carbon footprint, the question *"How much energy does my service actually consume?"* is becoming as important as *"How fast does it respond?"*.
+The IT industry accounts for roughly 2–4% of global CO2 emissions [1]—comparable to the aviation industry [2]. As software engineers we tend to optimise for throughput, latency, and reliability. Energy efficiency rarely makes it onto the sprint board. But with sustainability regulations tightening across the EU—most notably the Corporate Sustainability Reporting Directive (CSRD) [3]—and customers increasingly scrutinising their digital carbon footprint, the question *"How much energy does my service actually consume?"* is becoming as important as *"How fast does it respond?"*. One emerging standard for answering that question in a comparable, repeatable way is the Green Software Foundation's **Software Carbon Intensity (SCI)** specification [16], which expresses carbon efficiency as a rate—gCO2eq per unit of work—making it one of the key reporting metrics for sustainable software.
 
 The challenge: software itself does not consume energy—the hardware it runs on does. Quantifying the share attributable to a specific Java process, or to a single HTTP transaction, requires careful measurement and modelling. Two extra JVM flags and a Docker Compose file are all you need.
 
@@ -251,3 +251,5 @@ Manuel Steinberg is a PhD candidate at Hochschule München (Munich University of
 [14] ReactiveX, *RxJava*. https://github.com/ReactiveX/RxJava
 
 [15] Apache Software Foundation, *Apache JMeter*. https://jmeter.apache.org/
+
+[16] Green Software Foundation, *Software Carbon Intensity (SCI) Specification* (ISO/IEC 21031:2024). https://greensoftware.foundation/projects/software-carbon-intensity
