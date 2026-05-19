@@ -1,8 +1,6 @@
 # Measuring Energy Consumption and CO2 Emissions of Java Applications with OpenTelemetry
 
-*How a single JVM startup parameter turns any Java application into a green software observatory*
-
----
+*How two JVM flags turn any Java application into a green software observatory*
 
 ## Why Energy Consumption Matters for Software Engineers
 
@@ -120,7 +118,7 @@ POST   http://localhost:8081/test-rest-endpoint/postData
 DELETE http://localhost:8081/test-rest-endpoint/deleteData
 ```
 
-Each endpoint sorts an integer array of increasing size (3.000 / 4.000 / 6.000 elements) using a naïve O(n²) algorithm, writes a temporary file, and deletes it again—making the three transaction types distinguishable by their CPU, disk, and memory footprint.
+Each endpoint sorts an integer array of increasing size (3,000 / 4,000 / 6,000 elements) using a naïve O(n²) algorithm, writes a temporary file, and deletes it again—making the three transaction types distinguishable by their CPU, disk, and memory footprint.
 
 ```bash
 # Build the project first
@@ -144,7 +142,7 @@ Open `http://localhost:3000/grafana/dashboards` in your browser to see live reso
 
 ![Spring REST service Grafana dashboard showing SCI CO2eq per transaction, CPU demand, and emission calculation factors](../img/spring_dashboard.png)
 
-*Figure 3: The pre-built Spring dashboard shows SCI (Software Carbon Intensity) in gCO2eq for each transaction type, CPU demand per transaction and for the whole process, plus the emission calculation factors used.*
+*Figure 2: The pre-built Spring dashboard shows SCI (Software Carbon Intensity) in gCO2eq for each transaction type, CPU demand per transaction and for the whole process, plus the emission calculation factors used.*
 
 The dashboard makes the contrast between endpoints immediately visible: the DELETE endpoint — sorting 6.000 elements with an O(n²) algorithm — registers roughly 3–4× more CPU time per request than GET, reflected directly in its CO2e share. For a service processing 10 million requests per day, that ratio compounds fast. Replacing the naïve sort with a standard O(n log n) algorithm would cut DELETE's energy footprint by more than half—and the improvement shows up in the dashboard within seconds of redeployment.
 
@@ -162,7 +160,7 @@ The full metric names and attribute keys are listed in the [repository README](h
 
 ## Accuracy: What to Expect
 
-**At the process level**, the OTJAE linear model achieves the following accuracy compared to direct INTEL`s RAPL hardware measurements on a dual-socket Intel Xeon server:
+**At the process level**, the OTJAE linear model achieves the following accuracy compared to direct Intel's RAPL hardware measurements on a dual-socket Intel Xeon server:
 
 | CPU Utilisation | OTJAE Accuracy |
 |----------------|----------------|
