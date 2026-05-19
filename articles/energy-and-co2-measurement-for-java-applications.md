@@ -49,7 +49,7 @@ The same proportional split is applied to memory, storage, and network energy co
 
 For cloud deployments (AWS, Azure, GCP) all coefficients—instance TDP, memory power, embodied emissions, grid factors—are pre-loaded from the CCF dataset. For on-premise hardware every parameter can be overridden via system properties.
 
-## Instrumenting and Configuration your application with just two JVM flags
+## Instrumenting and Configuring your Application with Just Two JVM Flags
 
 OTJAE's **zero-code instrumentation model** requires just two additional JVM arguments at startup — no application changes needed!
 
@@ -148,7 +148,7 @@ Open `http://localhost:3000/grafana/dashboards` in your browser to see live reso
 
 The dashboard makes the contrast between endpoints immediately visible: the DELETE endpoint — sorting 6.000 elements with an O(n²) algorithm — registers roughly 3–4× more CPU time per request than GET, reflected directly in its CO2e share. For a service processing 10 million requests per day, that ratio compounds fast. Replacing the naïve sort with a standard O(n log n) algorithm would cut DELETE's energy footprint by more than half—and the improvement shows up in the dashboard within seconds of redeployment.
 
-## Understanding the Dashbord Metrics
+## Understanding the Dashboard Metrics
 
 OTJAE publishes two categories of OpenTelemetry metrics.
 
@@ -177,7 +177,7 @@ The accuracy gap at low utilisation is well understood: the linear model does no
 
 **Practical recommendation**: if your services regularly operate below 30–40% CPU utilisation, treat OTJAE measurements as a lower-bound estimate. At medium to high load the model is production-grade.
 
-## Limitations to Know About
+## Gotchas and Edge Cases
 
 **Thread model**: OTJAE measures resource demand per span by comparing start and end readings on the carrier thread. If a span hops between threads—common in reactive frameworks (Project Reactor, RxJava) or with virtual threads under heavy continuation switching—the delta calculation becomes invalid. The extension detects this condition and excludes such spans from metric aggregation (the raw span attributes are still attached for manual inspection).
 
@@ -185,7 +185,9 @@ The accuracy gap at low utilisation is well understood: the linear model does no
 
 **Virtual threads (Project Loom)**: Memory demand cannot be captured for virtual threads due to JVM limitations. CPU demand uses the carrier thread as a proxy, which may overestimate for workloads with many parked virtual threads.
 
-## Going Further
+**Instrumentation overhead**: The extension adds two thread-local reads per span—one at span start, one at end. In benchmarks on the Spring example application the added latency is below 1% at typical load. The [repository README](https://github.com/RETIT/opentelemetry-javaagent-extension) contains up-to-date figures.
+
+## From Measurement to Action: What to Try Next
 
 Once you have the basic setup running there are several natural next steps:
 
