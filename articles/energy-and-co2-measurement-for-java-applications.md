@@ -23,7 +23,7 @@ The [OpenTelemetry Java Agent Extension](https://github.com/RETIT/opentelemetry-
 
 From these measurements OTJAE derives energy consumption and CO2 equivalent (CO2e) emissions at both the **process level** and the **individual transaction level**. The energy model follows the [Cloud Carbon Footprint (CCF)](https://www.cloudcarbonfootprint.org/docs/methodology/) methodology, which is pre-loaded with instance data for AWS, Azure, and GCP, and supports custom on-premise hardware profiles.
 
-A recent peer-reviewed study presented at FSE 2025 (*Brunnert, "Evaluating the Accuracy of Software Energy Consumption Models for Java Applications at Process and Transaction Levels"*) compared OTJAE against direct RAPL hardware measurements. The verdict: **at CPU utilisation levels above 50% the model predictions match hardware measurements with high accuracy**. For cloud workloads—where direct hardware access via Intel RAPL is typically unavailable—OTJAE is currently one of the very few tools that can produce per-transaction energy estimates at all.
+A recent peer-reviewed study presented at FSE 2025 (*Brunnert, "Evaluating the Accuracy of Software Energy Consumption Models for Java Applications at Process and Transaction Levels"*) compared OTJAE against direct RAPL (Running Average Power Limit—Intel's hardware interface for reading per-socket energy consumption) measurements. The verdict: **at CPU utilisation levels above 50% the model predictions match hardware measurements with high accuracy**. For cloud workloads—where direct hardware access via Intel RAPL is typically unavailable—OTJAE is currently one of the very few tools that can produce per-transaction energy estimates at all.
 
 ## How the Model Works
 
@@ -92,7 +92,7 @@ java \
   -jar ./your-application.jar
 ```
 
-The pattern is the same for GCP and Azure — swap `aws` for `gcp` or `azure`, then adjust the region string and instance type. For on-premise deployments, replace the cloud properties with idle and peak CPU power values (available from [SPECpower_ssj2008](https://www.spec.org/power_ssj2008/results/) results), a PUE value for your data centre, and the grid emissions factor for your country. The [German grid factor for 2024](https://www.umweltbundesamt.de/themen/co2-emissionen-pro-kilowattstunde-strom-2024) is approximately 363 g CO2e/kWh (down from 433 in 2022, reflecting the growing share of renewables).
+The pattern is the same for GCP and Azure — swap `aws` for `gcp` or `azure`, then adjust the region string and instance type. For on-premise deployments, replace the cloud properties with idle and peak CPU power values (available from [SPECpower_ssj2008](https://www.spec.org/power_ssj2008/results/) results), a PUE (Power Usage Effectiveness—the ratio of total facility power to IT equipment power, typically 1.2–2.0) value for your data centre, and the grid emissions factor for your country. The [German grid factor for 2024](https://www.umweltbundesamt.de/themen/co2-emissionen-pro-kilowattstunde-strom-2024) is approximately 363 g CO2e/kWh (down from 433 in 2022, reflecting the growing share of renewables).
 
 ## Configuration Reference
 
