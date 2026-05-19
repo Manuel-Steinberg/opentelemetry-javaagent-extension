@@ -206,3 +206,9 @@ Green software engineering starts with measurement. Now you have the tools.
 ---
 
 *The source code, examples, and pre-built dashboards are available at [github.com/RETIT/opentelemetry-javaagent-extension](https://github.com/RETIT/opentelemetry-javaagent-extension) under the Apache 2.0 license.*
+
+---
+
+### About the Author
+
+Manuel Steinberg is a PhD candidate at Hochschule München (Munich University of Applied Sciences) researching green software metrics covering green software engineering. His work focuses on practical tooling and measurement methodologies for accurate quantifying the energy footprint of software applications.
