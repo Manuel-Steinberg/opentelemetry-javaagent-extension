@@ -8,7 +8,11 @@ The IT industry accounts for roughly 2–4% of global CO2 emissions [1] — comp
 
 That is changing. Sustainability regulations are tightening across the EU, most notably with the Corporate Sustainability Reporting Directive (CSRD) [3], and customers are increasingly asking hard questions about the carbon footprint of the services they use. The question *"How much energy does my service actually consume?"* is becoming as commercially relevant as *"How fast does it respond?"*. The Green Software Foundation's **Software Carbon Intensity (SCI)** specification [16] — now an ISO/IEC standard — gives organisations a consistent way to answer it: gCO2eq per unit of work, measured continuously.
 
-The awkward truth is that software itself does not consume energy — the hardware it runs on does. Attributing a share of that hardware's power draw to a specific Java process, or to a single HTTP transaction, requires measurement and modelling. This article walks through a practical tool that makes both achievable without touching application code.
+The awkward truth is that software itself does not consume energy — the hardware it runs on does. Attributing a share of that hardware's power draw to a specific Java process, or to a single HTTP transaction, requires measurement and modelling.
+
+Specialised tools like JoularJX can do this accurately by reading Intel's RAPL interface — a hardware mechanism that reports actual socket-level energy consumption in real time. The catch: RAPL requires direct hardware access, which disappears the moment you deploy to AWS, Google Cloud, or Azure. Most production Java workloads run precisely there. Model-based tools fill that gap. Instead of reading from hardware, they estimate energy consumption from metrics that *are* available in cloud environments — CPU time, heap allocation, disk and network I/O — and map them to power draw using known hardware profiles. Accuracy is not perfect across all load levels, but it is good enough for production use, and it requires no specialised infrastructure, no root access, and no changes to your application.
+
+This article walks through one such tool — the OpenTelemetry Java Agent Extension (OTJAE) — and shows how to go from zero to per-transaction CO2 estimates in a matter of minutes.
 
 ## What OTJAE Does
 
