@@ -1,12 +1,12 @@
 # Measuring Energy Consumption and CO2 Emissions of Java Applications with OpenTelemetry
 
-*How two JVM flags turn any Java application into a green software observatory*
+*How two JVM flags — or a single Maven dependency — turn any Java application into a green software observatory*
 
 ## Why Energy Consumption Matters for Software Engineers
 
 The IT industry accounts for roughly 2–4% of global CO2 emissions [1]—comparable to the aviation industry [2]. As software engineers we tend to optimise for throughput, latency, and reliability. Energy efficiency rarely makes it onto the sprint board. But with sustainability regulations tightening across the EU—most notably the Corporate Sustainability Reporting Directive (CSRD) [3]—and customers increasingly scrutinising their digital carbon footprint, the question *"How much energy does my service actually consume?"* is becoming as important as *"How fast does it respond?"*. One emerging standard for answering that question in a comparable, repeatable way is the Green Software Foundation's **Software Carbon Intensity (SCI)** specification [16], which expresses carbon efficiency as a rate—gCO2eq per unit of work—making it one of the key reporting metrics for sustainable software.
 
-The challenge: software itself does not consume energy—the hardware it runs on does. Quantifying the share attributable to a specific Java process, or to a single HTTP transaction, requires careful measurement and modelling. Two extra JVM flags and a Docker Compose file are all you need.
+The challenge: software itself does not consume energy—the hardware it runs on does. Quantifying the share attributable to a specific Java process, or to a single HTTP transaction, requires careful measurement and modelling. Two extra JVM flags — or, for CDI-enabled frameworks like Quarkus, a single Maven dependency — and a Docker Compose file are all you need.
 
 ## The Tool: OpenTelemetry Java Agent Extension (OTJAE)
 
@@ -91,6 +91,73 @@ java \
 ```
 
 The pattern is the same for GCP and Azure — swap `aws` for `gcp` or `azure`, then adjust the region string and instance type. For on-premise deployments, replace the cloud properties with idle and peak CPU power values (available from SPECpower_ssj2008 [9] results), a PUE (Power Usage Effectiveness—the ratio of total facility power to IT equipment power, typically 1.2–2.0) value for your data centre, and the grid emissions factor for your country. The German grid factor for 2024 [10] is approximately 363 g CO2e/kWh (down from 433 in 2022, reflecting the growing share of renewables).
+
+## Even Faster Integration: Zero Flags via Maven Dependency (Quarkus and CDI Frameworks)
+
+If your application runs on a CDI-enabled framework — most notably Quarkus or WildFly — there is a third path that eliminates the JVM flags entirely. A recently merged pull request [17] introduced a dedicated `cdi-library` module that packages the RETIT span processor as a plain Maven dependency. CDI's bean auto-discovery picks it up automatically; no `-javaagent` argument, no extension JAR download, no startup flag.
+
+The table below shows when each approach applies:
+
+| | Java Agent (JVM flags) | CDI Library (Maven) |
+|---|---|---|
+| Spring Boot | Recommended | Not applicable |
+| Quarkus | Works | Recommended |
+| WildFly / Jakarta EE | Works | Recommended |
+| Plain JVM / legacy apps | Only option | Not applicable |
+
+### Step 1 — Authenticate with GitHub Packages
+
+The library is distributed via GitHub Packages rather than Maven Central, which means you need a GitHub personal access token (PAT) with the `read:packages` scope — even for this public repository. Add the credentials to `~/.m2/settings.xml`:
+
+```xml
+<settings>
+  <servers>
+    <server>
+      <id>github</id>
+      <username>YOUR_GITHUB_USERNAME</username>
+      <password>YOUR_PAT_WITH_READ_PACKAGES</password>
+    </server>
+  </servers>
+</settings>
+```
+
+Then declare the repository in your project `pom.xml`:
+
+```xml
+<repositories>
+  <repository>
+    <id>github</id>
+    <name>GitHub RETIT Apache Maven Packages</name>
+    <url>https://maven.pkg.github.com/RETIT/opentelemetry-javaagent-extension</url>
+  </repository>
+</repositories>
+```
+
+### Step 2 — Add the dependency
+
+```xml
+<dependency>
+  <groupId>io.retit</groupId>
+  <artifactId>opentelemetry-java-agent-extension-cdi-library</artifactId>
+  <version><!-- latest release, e.g. v0.0.20-alpha --></version>
+</dependency>
+```
+
+For Quarkus, also ensure `quarkus-opentelemetry` is on the classpath — it provides the OpenTelemetry SDK that the CDI library hooks into. That dependency is typically already present in any Quarkus service that exports traces. CDI auto-discovery finds `RETITSpanProcessorConfiguration` via the library's `META-INF/beans.xml` and registers the span processor without any further wiring.
+
+### Step 3 — Configure via application.properties
+
+All OTJAE properties work identically in the CDI mode and can be set through Quarkus's standard `application.properties`:
+
+```properties
+io.retit.emissions.cloud.provider=aws
+io.retit.emissions.cloud.provider.region=eu-central-1
+io.retit.emissions.cloud.provider.instance.type=t3.medium
+```
+
+Environment variables work too (replace dots with underscores, uppercase), which keeps the configuration consistent across container deployments. The full property reference is in the section below.
+
+A complete working example — the `quarkus-rest-service-library` — ships in the repository's examples directory [11] alongside the Spring and plain-JDK examples.
 
 ## Configuration Reference
 
@@ -253,3 +320,5 @@ Manuel Steinberg is a PhD candidate at Hochschule München (Munich University of
 [15] Apache Software Foundation, *Apache JMeter*. https://jmeter.apache.org/
 
 [16] Green Software Foundation, *Software Carbon Intensity (SCI) Specification* (ISO/IEC 21031:2024). https://greensoftware.foundation/projects/software-carbon-intensity
+
+[17] RETIT, *CDI Library module for OTJAE (PR #315)*. https://github.com/RETIT/opentelemetry-javaagent-extension/pull/315
