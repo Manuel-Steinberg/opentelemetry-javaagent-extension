@@ -2,15 +2,17 @@
 
 *How two JVM flags — or a single Maven dependency — turn any Java application into a green software observatory*
 
-## Why Energy Consumption Matters for Software Engineers
+## Why Energy Consumption Matters to Software Engineers
 
-The IT industry accounts for roughly 2–4% of global CO2 emissions [1]—comparable to the aviation industry [2]. As software engineers we tend to optimise for throughput, latency, and reliability. Energy efficiency rarely makes it onto the sprint board. But with sustainability regulations tightening across the EU—most notably the Corporate Sustainability Reporting Directive (CSRD) [3]—and customers increasingly scrutinising their digital carbon footprint, the question *"How much energy does my service actually consume?"* is becoming as important as *"How fast does it respond?"*. One emerging standard for answering that question in a comparable, repeatable way is the Green Software Foundation's **Software Carbon Intensity (SCI)** specification [16], which expresses carbon efficiency as a rate—gCO2eq per unit of work—making it one of the key reporting metrics for sustainable software.
+The IT industry accounts for roughly 2–4% of global CO2 emissions [1] — comparable to aviation [2]. Most software engineers optimise hard for throughput, latency, and reliability. Energy efficiency rarely makes the sprint board.
 
-The challenge: software itself does not consume energy—the hardware it runs on does. Quantifying the share attributable to a specific Java process, or to a single HTTP transaction, requires careful measurement and modelling. Two extra JVM flags — or, for CDI-enabled frameworks like Quarkus, a single Maven dependency — and a Docker Compose file are all you need.
+That is changing. Sustainability regulations are tightening across the EU, most notably with the Corporate Sustainability Reporting Directive (CSRD) [3], and customers are increasingly asking hard questions about the carbon footprint of the services they use. The question *"How much energy does my service actually consume?"* is becoming as commercially relevant as *"How fast does it respond?"*. The Green Software Foundation's **Software Carbon Intensity (SCI)** specification [16] — now an ISO/IEC standard — gives organisations a consistent way to answer it: gCO2eq per unit of work, measured continuously.
 
-## The Tool: OpenTelemetry Java Agent Extension (OTJAE)
+The awkward truth is that software itself does not consume energy — the hardware it runs on does. Attributing a share of that hardware's power draw to a specific Java process, or to a single HTTP transaction, requires measurement and modelling. This article walks through a practical tool that makes both achievable without touching application code.
 
-The OpenTelemetry Java Agent Extension [4] (OTJAE) is an open-source extension for the official OpenTelemetry Java Auto-Instrumentation Agent [5]. It hooks into the established OpenTelemetry instrumentation pipeline to collect four resource-demand dimensions for every traced transaction:
+## What OTJAE Does
+
+The OpenTelemetry Java Agent Extension [4] — OTJAE — is an open-source add-on for the official OpenTelemetry Java auto-instrumentation agent [5]. It sits on top of the instrumentation you may already have in place and adds four resource-demand dimensions to every traced transaction:
 
 | Dimension | Unit | Platform |
 |-----------|------|----------|
@@ -19,39 +21,43 @@ The OpenTelemetry Java Agent Extension [4] (OTJAE) is an open-source extension f
 | Disk I/O (read + write) | bytes | Linux (kernel ≥ 3.14) |
 | Network I/O (read + write) | bytes | Linux (kernel ≥ 3.14) |
 
-From these measurements OTJAE derives energy consumption and CO2 equivalent (CO2e) emissions at both the **process level** and the **individual transaction level**. The energy model follows the Cloud Carbon Footprint (CCF) [6] methodology, which is pre-loaded with instance data for AWS, Azure, and GCP, and supports custom on-premise hardware profiles.
+Those four measurements feed an energy model that produces two outputs: **process-level** energy and CO2 consumption (useful for infrastructure cost attribution and sustainability reporting) and **per-transaction** energy and CO2 (useful for identifying which endpoints actually drive your power bill). The model uses the Cloud Carbon Footprint (CCF) [6] methodology and ships with pre-loaded coefficient tables for AWS, Azure, and GCP. On-premise hardware is supported too, with configurable parameters for CPU power, data-centre PUE, and grid emissions factors.
 
-A recent peer-reviewed study presented at FSE 2025 (*Brunnert, "Evaluating the Accuracy of Software Energy Consumption Models for Java Applications at Process and Transaction Levels" [7]*) compared OTJAE against direct RAPL (Running Average Power Limit—Intel's hardware interface for reading per-socket energy consumption) measurements. The verdict: **at CPU utilisation levels above 50% the model predictions match hardware measurements with high accuracy**. For cloud workloads—where direct hardware access via Intel RAPL is typically unavailable—OTJAE is currently one of the very few tools that can produce per-transaction energy estimates at all.
+A peer-reviewed study presented at FSE 2025 [7] validated OTJAE against direct Intel RAPL measurements — RAPL being the hardware interface on Intel processors that reports actual socket-level energy consumption, and typically inaccessible in cloud environments. The finding: **above 50% CPU utilisation, the model tracks hardware measurements closely**. At lower loads the linear model understates consumption. More on that in the accuracy section, but the headline is that for cloud workloads OTJAE is currently one of the very few tools that can produce per-transaction energy estimates at all.
 
-## How the Model Works
+## How the Numbers Are Calculated
+
+Understanding the model takes about five minutes and is worth it — it tells you exactly when to trust the numbers and when to be cautious.
 
 ![Per-transaction resource demand capture across applications](../img/extension_data_capture.png)
 
 *Figure 1: OTJAE captures CPU, memory, storage, and network demand independently for every transaction across all instrumented applications.*
 
-In plain terms: the model estimates each transaction's share of the server's power bill based on how much CPU time it consumed relative to the total workload. The more CPU cycles your endpoint burns, the larger its slice of the energy cost.
-
-OTJAE implements a linear power model from Etsy's *Cloud Jewels* [8] methodology. Given the minimum idle power (P_min) and maximum full-load power (P_max) of the underlying processor, the instantaneous CPU power is:
+The core idea is straightforward: each transaction gets a share of the server's power bill proportional to the CPU time it consumed. OTJAE implements the linear power model from Etsy's *Cloud Jewels* [8] paper, which estimates instantaneous CPU power as an interpolation between idle and full-load power:
 
 ```
 P_CPU = P_min + (CPU_utilisation × (P_max − P_min))
 ```
 
-For a single transaction the CPU utilisation is derived from the sum of CPU-time samples recorded during the measurement window:
+For a single transaction, CPU utilisation is derived from the thread's CPU-time delta across the span:
 
 ```
 CPU_util_transaction = Σ(dCPU) / (CPU_cores × interval_ms)
 ```
 
-The same proportional split is applied to memory, storage, and network energy consumption. Carbon emissions are calculated by multiplying the energy value with the grid emissions factor (gCO2e/kWh) for the configured cloud region, plus a share of the hardware's embodied emissions amortised over its expected lifespan.
+The same proportional logic applies to memory, disk, and network. Carbon emissions are then the energy value multiplied by the grid emissions factor (gCO2e/kWh) for the configured region, plus a pro-rated share of the hardware's embodied emissions amortised over its expected lifespan.
 
-For cloud deployments (AWS, Azure, GCP) all coefficients—instance TDP (Thermal Design Power, the processor's rated heat output at maximum load), memory power, embodied emissions, grid factors—are pre-loaded from the CCF dataset. For on-premise hardware every parameter can be overridden via system properties.
+For cloud deployments all the coefficients you need — processor TDP (Thermal Design Power, the rated maximum heat output at full load), memory power, embodied emissions, and regional grid factors — come pre-loaded from the CCF dataset. This is why specifying the cloud provider, region, and instance type unlocks the full emissions picture: without those three values, the extension can measure resource demand but has no power envelope to map it to.
 
-## Instrumenting and Configuring your Application with Just Two JVM Flags
+## Instrumenting Your Application
 
-OTJAE's **zero-code instrumentation model** requires just two additional JVM arguments at startup — no application changes needed.
+No application code changes are required. You have two integration paths depending on your framework.
 
-### Step 1 — Download the JARs
+### Path A — JVM Flags (Spring Boot, plain JVM, legacy apps)
+
+This works with any JVM application where you control startup parameters. You need two JARs and two flags.
+
+#### Step 1 — Download the JARs
 
 ```bash
 # OpenTelemetry Java Agent (base agent)
@@ -63,7 +69,7 @@ curl -L -o io.retit.opentelemetry.javaagent.extension.jar \
   https://github.com/RETIT/opentelemetry-javaagent-extension/releases/latest/download/io.retit.opentelemetry.javaagent.extension.jar
 ```
 
-### Step 2 — Add the JVM Flags
+#### Step 2 — Start your application with the agent
 
 ```bash
 java \
@@ -73,11 +79,11 @@ java \
   -jar ./your-application.jar
 ```
 
-The extension hooks into every OpenTelemetry span and enriches it with resource demand attributes.
+At this point OTJAE is active and capturing CPU and heap demand on every span. It can export traces and resource-demand attributes to any OpenTelemetry-compatible backend.
 
-### Step 3 — Configure the Cloud or Hardware Profile
+#### Step 3 — Add the cloud or hardware profile for emissions estimates
 
-Without a cloud profile the extension still captures CPU and memory demand, but cannot produce emissions estimates. Three additional properties cover any cloud provider:
+Without a cloud profile the extension captures resource demand but cannot convert it to energy or CO2 figures — it has no power envelope to work with. Three additional system properties cover any of the three major cloud providers:
 
 ```bash
 java \
@@ -90,24 +96,24 @@ java \
   -jar ./your-application.jar
 ```
 
-The pattern is the same for GCP and Azure — swap `aws` for `gcp` or `azure`, then adjust the region string and instance type. For on-premise deployments, replace the cloud properties with idle and peak CPU power values (available from SPECpower_ssj2008 [9] results), a PUE (Power Usage Effectiveness—the ratio of total facility power to IT equipment power, typically 1.2–2.0) value for your data centre, and the grid emissions factor for your country. The German grid factor for 2024 [10] is approximately 363 g CO2e/kWh (down from 433 in 2022, reflecting the growing share of renewables).
+The pattern is the same for GCP and Azure — swap `aws` for `gcp` or `azure` and adjust the region string and instance type. For on-premise hardware, replace the cloud properties with idle and peak CPU power values (available from SPECpower_ssj2008 [9] results), a PUE value for your data centre, and the grid emissions factor for your country. Germany's 2024 grid factor [10] is approximately 363 g CO2e/kWh, down from 433 in 2022 as the share of renewables has grown.
 
-## Even Faster Integration: Zero Flags via Maven Dependency (Quarkus and CDI Frameworks)
+### Path B — Maven Dependency (Quarkus and CDI Frameworks)
 
-If your application runs on a CDI-enabled framework — most notably Quarkus or WildFly — there is a third path that eliminates the JVM flags entirely. A recently merged pull request [17] introduced a dedicated `cdi-library` module that packages the RETIT span processor as a plain Maven dependency. CDI's bean auto-discovery picks it up automatically; no `-javaagent` argument, no extension JAR download, no startup flag.
+If your application runs on a CDI-enabled framework — Quarkus or WildFly being the main examples — a newer approach [17] lets you skip the JVM flags entirely. You add a Maven dependency and CDI's bean auto-discovery wires up the span processor automatically.
 
-The table below shows when each approach applies:
-
-| | Java Agent (JVM flags) | CDI Library (Maven) |
+| | Java Agent (Path A) | CDI Library (Path B) |
 |---|---|---|
 | Spring Boot | Recommended | Not applicable |
 | Quarkus | Works | Recommended |
 | WildFly / Jakarta EE | Works | Recommended |
 | Plain JVM / legacy apps | Only option | Not applicable |
 
-### Step 1 — Authenticate with GitHub Packages
+One trade-off worth knowing upfront: the library is currently distributed via GitHub Packages rather than Maven Central, which means an authentication step that the JAR download approach doesn't require.
 
-The library is distributed via GitHub Packages rather than Maven Central, which means you need a GitHub personal access token (PAT) with the `read:packages` scope — even for this public repository. Add the credentials to `~/.m2/settings.xml`:
+#### Step 1 — Authenticate with GitHub Packages
+
+GitHub Packages requires a personal access token (PAT) with the `read:packages` scope, even for public repositories. Add your credentials to `~/.m2/settings.xml`:
 
 ```xml
 <settings>
@@ -133,7 +139,7 @@ Then declare the repository in your project `pom.xml`:
 </repositories>
 ```
 
-### Step 2 — Add the dependency
+#### Step 2 — Add the dependency
 
 ```xml
 <dependency>
@@ -143,11 +149,11 @@ Then declare the repository in your project `pom.xml`:
 </dependency>
 ```
 
-For Quarkus, also ensure `quarkus-opentelemetry` is on the classpath — it provides the OpenTelemetry SDK that the CDI library hooks into. That dependency is typically already present in any Quarkus service that exports traces. CDI auto-discovery finds `RETITSpanProcessorConfiguration` via the library's `META-INF/beans.xml` and registers the span processor without any further wiring.
+For Quarkus, `quarkus-opentelemetry` must also be on the classpath — it provides the SDK the CDI library hooks into and is typically already present in any Quarkus service that exports traces. Once the dependency is on the classpath, CDI finds `RETITSpanProcessorConfiguration` through the library's `META-INF/beans.xml` and registers the span processor with no additional wiring.
 
-### Step 3 — Configure via application.properties
+#### Step 3 — Configure via application.properties
 
-All OTJAE properties work identically in the CDI mode and can be set through Quarkus's standard `application.properties`:
+The same OTJAE configuration properties work in CDI mode and can be set through Quarkus's standard `application.properties`:
 
 ```properties
 io.retit.emissions.cloud.provider=aws
@@ -155,13 +161,11 @@ io.retit.emissions.cloud.provider.region=eu-central-1
 io.retit.emissions.cloud.provider.instance.type=t3.medium
 ```
 
-Environment variables work too (replace dots with underscores, uppercase), which keeps the configuration consistent across container deployments. The full property reference is in the section below.
-
-A complete working example — the `quarkus-rest-service-library` — ships in the repository's examples directory [11] alongside the Spring and plain-JDK examples.
+Environment variables work equally well (replace dots with underscores, uppercase), which is convenient for containerised deployments. A complete working example is available in the repository's examples directory [11] alongside the Spring and plain-JDK variants.
 
 ## Configuration Reference
 
-The most important properties are listed below. Disk and network I/O are disabled by default because they require Linux kernel ≥ 3.14. On-premise parameters (CPU idle/peak power, PUE, grid emissions factor, embodied emissions) follow the same pattern and are fully documented in the repository README [4].
+The table below covers the most commonly needed properties. Disk and network I/O are off by default because they require Linux kernel ≥ 3.14. On-premise parameters — CPU idle and peak power, PUE, grid emissions factor, embodied emissions — follow the same `-Dio.retit.*` naming pattern and are fully documented in the repository README [4].
 
 | System Property | Default | Description |
 |----------------|---------|-------------|
@@ -176,11 +180,11 @@ The most important properties are listed below. Disk and network I/O are disable
 | `io.retit.emissions.storage.type` | `SSD` | Storage type used for energy calculation (`HDD` or `SSD`) |
 | `io.retit.emissions.hardware.lifespan` | `4` | Expected hardware lifespan in years (for embodied emissions amortisation) |
 
-All properties can also be set as environment variables (replace dots with underscores, uppercase), which is convenient for containerised deployments. The complete property reference—including on-premise power and embodied-emissions overrides—is in the repository README [4].
+All properties can also be set as environment variables (dots replaced with underscores, uppercased), which is convenient for containerised deployments. The complete reference — including on-premise overrides — is in the repository README [4].
 
-## The Example Application: Spring REST Service
+## Seeing It in Practice
 
-The repository of OTJAE ships with a ready-to-run Spring Boot example application — the same one used in the FSE 2025 accuracy study. The service exposes three REST endpoints that deliberately generate measurable resource load:
+The repository ships with a ready-to-run Spring Boot example — the same application used in the FSE 2025 accuracy study [7]. Three REST endpoints deliberately generate distinguishable resource load:
 
 ```
 GET    http://localhost:8081/test-rest-endpoint/getData
@@ -188,7 +192,9 @@ POST   http://localhost:8081/test-rest-endpoint/postData
 DELETE http://localhost:8081/test-rest-endpoint/deleteData
 ```
 
-Each endpoint sorts an integer array of increasing size (3,000 / 4,000 / 6,000 elements) using a naïve O(n²) algorithm, writes a temporary file, and deletes it again—making the three transaction types distinguishable by their CPU, disk, and memory footprint.
+Each endpoint sorts an integer array of increasing size (3,000 / 4,000 / 6,000 elements) using a naïve O(n²) algorithm, writes a temporary file, and deletes it — making the three transaction types distinguishable by their CPU, disk, and memory footprint.
+
+> **Note on JAR paths**: The commands below reference `target/jib/otel/` paths — those are produced by the example project's Maven build, which downloads and stages both agent JARs automatically during `./mvnw clean package`. If you are adapting these commands to your own application, substitute the paths where you downloaded the JARs in Path A, Step 1 above.
 
 ```bash
 # Build the project first
@@ -214,25 +220,25 @@ Open `http://localhost:3000/grafana/dashboards` in your browser to see live reso
 
 *Figure 2: The pre-built Spring dashboard shows SCI (Software Carbon Intensity) in gCO2eq for each transaction type, CPU demand per transaction and for the whole process, plus the emission calculation factors used.*
 
-The dashboard makes the contrast between endpoints immediately visible: the DELETE endpoint — sorting 6,000 elements with an O(n²) algorithm — registers roughly 3–4× more CPU time per request than GET, reflected directly in its CO2e share. For a service processing 10 million requests per day, that ratio compounds fast. Replacing the naïve sort with a standard O(n log n) algorithm would cut DELETE's energy footprint by more than half—and the improvement shows up in the dashboard within seconds of redeployment.
+The dashboard makes the contrast between endpoints immediately visible. The DELETE endpoint — sorting 6,000 elements with an O(n²) algorithm — registers roughly 3–4× more CPU time per request than GET, and that ratio shows up directly in its CO2e share. For a service processing 10 million requests per day the difference compounds fast. Replacing the naïve sort with a standard O(n log n) algorithm would cut DELETE's energy footprint by more than half — and the improvement appears in the dashboard within seconds of redeployment. That feedback loop, from code change to measurable emissions delta, is what makes the tooling useful in practice.
 
-Spring is just the starting point. The examples directory [11] also contains a Quarkus REST service with its own pre-built dashboard, and plain JDK examples for both JDK 21 and JDK 8—making it straightforward to instrument legacy enterprise applications that haven't migrated to a modern framework.
+The examples directory [11] also contains a Quarkus REST service with its own pre-built dashboard, and plain JDK examples for both JDK 21 and JDK 8 — making it straightforward to try the tooling on legacy applications that have not migrated to a modern framework.
 
-## Understanding the Dashboard Metrics
+## Reading the Metrics
 
-OTJAE publishes two categories of OpenTelemetry metrics.
+OTJAE exports two categories of OpenTelemetry metrics, and understanding the distinction matters when you build dashboards or alerts on top of them.
 
-**Resource demand counters** are cumulative values per service that grow over time—one counter each for CPU time (ms), heap allocation (bytes), disk I/O (bytes), and network I/O (bytes). Grafana's `rate()` function converts these into per-second or per-request demand figures.
+**Resource demand counters** are cumulative totals per service instance that grow monotonically — one counter each for CPU time (ms), heap allocation (bytes), disk I/O (bytes), and network I/O (bytes). They are designed for rate functions: Grafana's `rate()` gives you per-second demand, and dividing by request rate gives you per-request demand.
 
-**Emissions configuration gauges** are static values published once at startup: idle and peak CPU power, the grid emissions factor, PUE, and per-unit energy coefficients for memory, storage, and network. The Grafana dashboards use these as parameters to compute CO2e on the fly, so no pre-aggregation happens inside the JVM.
+**Emissions configuration gauges** are published once at startup and stay static: idle and peak CPU power, the grid emissions factor, PUE, and per-unit energy coefficients for memory, storage, and network. The pre-built dashboards use these as live parameters to compute CO2e in Grafana itself — no pre-aggregation happens inside the JVM.
 
-Every span also carries **resource demand as span attributes**—start and end readings for CPU time, heap bytes, disk reads/writes, and network reads/writes. This enables trace-level energy profiling: open a single slow request in Jaeger, inspect its span tree, and see exactly how much CPU time or heap each method call in the chain consumed.
+Every span also carries **resource demand as span attributes** — start and end readings for CPU time, heap bytes, and I/O counters. That is what enables trace-level energy profiling: open a slow request in Jaeger, look at the span tree, and see exactly how much CPU or heap each method call in the chain consumed.
 
-The full metric names and attribute keys are listed in the repository README [4].
+Full metric names and attribute keys are in the repository README [4].
 
-## Accuracy: What to Expect
+## Accuracy — Honest Numbers
 
-**At the process level**, the OTJAE linear model achieves the following accuracy compared to direct Intel's RAPL hardware measurements on a dual-socket Intel Xeon server:
+**At the process level**, OTJAE's linear model was benchmarked against direct RAPL readings on a dual-socket Intel Xeon server:
 
 | CPU Utilisation | OTJAE Accuracy |
 |----------------|----------------|
@@ -241,37 +247,35 @@ The full metric names and attribute keys are listed in the repository README [4]
 | ~80%  (450 T/s) | 89.8% |
 | ~98%  (600 T/s) | 98.1% |
 
-**At the transaction level**, a similar pattern holds: results for GET, POST, and DELETE transactions from OTJAE align closely with JoularJX [12] (an open-source RAPL-based energy profiler for Java, used here as the hardware reference) starting at around 50% system CPU utilisation.
+**At the transaction level**, GET, POST, and DELETE results from OTJAE align closely with JoularJX [12] — an open-source RAPL-based Java energy profiler used as the hardware reference — starting at around 50% system CPU utilisation.
 
-The accuracy gap at low utilisation is well understood: the linear model does not capture the non-linearity in power consumption at near-idle load, where components outside the CPU—disks, RAID controllers, NICs, BMC (Baseboard Management Controller)—account for a disproportionate share of power draw.
+Why the accuracy gap at low load? The linear model assumes a smooth relationship between CPU utilisation and power draw. At near-idle load, components outside the CPU — storage controllers, NICs, the BMC (Baseboard Management Controller) — account for a disproportionate share of total server power that the linear interpolation misses entirely.
 
-**Practical recommendation**: if your services regularly operate below 30–40% CPU utilisation, treat OTJAE measurements as a lower-bound estimate. At medium to high load the model is production-grade.
+**Practical guideline**: below 30–40% sustained CPU utilisation, treat OTJAE numbers as a lower-bound estimate rather than an absolute figure. At medium-to-high load the model is production-grade.
 
-## Gotchas and Edge Cases
+## Known Limitations
 
-**Thread model**: OTJAE measures resource demand per span by comparing start and end readings on the carrier thread. If a span hops between threads—common in reactive frameworks (Project Reactor [13], RxJava [14]) or with virtual threads under heavy continuation switching—the delta calculation becomes invalid. The extension detects this condition and excludes such spans from metric aggregation (the raw span attributes are still attached for manual inspection).
+**Reactive and virtual-thread workloads**: OTJAE measures resource demand per span by comparing thread-local readings at span start and end. If a span hops between threads — common in reactive frameworks like Project Reactor [13] or RxJava [14], and possible with virtual threads under heavy continuation switching — the delta calculation is invalid. The extension detects this and excludes affected spans from metric aggregation; the raw span attributes are still attached for manual inspection. Memory demand cannot be captured for virtual threads at all due to JVM constraints. CPU demand falls back to the carrier thread, which may overestimate for workloads with many parked virtual threads.
 
-**Operating system scope**: Disk and network demand capture require Linux with kernel ≥ 3.14. On macOS and Windows only CPU and memory demand are available.
+**OS scope**: Disk and network demand require Linux with kernel ≥ 3.14. On macOS and Windows you get CPU and heap only.
 
-**Virtual threads (Project Loom)**: Memory demand cannot be captured for virtual threads due to JVM limitations. CPU demand uses the carrier thread as a proxy, which may overestimate for workloads with many parked virtual threads.
+**Overhead**: Two thread-local reads per span — one at start, one at end. Benchmarks on the Spring example application show added latency below 1% at typical load. Up-to-date figures are in the README [4].
 
-**Instrumentation overhead**: The extension adds two thread-local reads per span—one at span start, one at end. In benchmarks on the Spring example application the added latency is below 1% at typical load. The repository README [4] contains up-to-date figures.
+## What to Try Next
 
-## From Measurement to Action: What to Try Next
+Once the setup is running, a few experiments are worth doing immediately.
 
-Once you have the basic setup running there are several natural next steps:
+1. **Load test it** — the example application ships with an Apache JMeter [15] script. Run it and watch the dashboards update in real time. The numbers only get interesting under real load.
 
-1. **Add load testing** — the example application ships with an Apache JMeter [15] script. Run it against your instrumented service and watch the dashboards respond in real time.
+2. **Change the region** — switch `eu-central-1` (low-carbon grid) to a coal-heavy region and watch the CO2 estimate climb without touching any code. It makes the grid emissions factor concrete in a way that reading about it does not.
 
-2. **Tune the instance configuration** — switch the cloud provider region from `eu-central-1` (low carbon grid) to a coal-heavy region and observe how the CO2 estimate changes without touching the application at all.
+3. **Add an energy budget to CI** — the OpenTelemetry metrics endpoint is standard. Fail the build if a key transaction's CPU demand per request crosses a threshold. Catching regressions in CI costs far less than investigating them in production.
 
-3. **Integrate into CI/CD** — the OpenTelemetry metrics endpoint is standard. Add an energy budget assertion to your performance tests: fail the build if a key transaction's CPU demand per request exceeds a defined threshold.
-
-4. **Explore embodied emissions** — set `io.retit.emissions.hardware.lifespan` to different values (3–6 years) to understand how hardware refresh cycles affect your total CO2 footprint.
+4. **Play with hardware lifespan** — set `io.retit.emissions.hardware.lifespan` to 3 or 6 years to see how hardware refresh cycles move the embodied-emissions needle.
 
 ## Conclusion
 
-For cloud environments where direct hardware measurements via Intel RAPL are inaccessible, OTJAE is currently one of the most practical options for per-transaction energy attribution—validated against hardware measurements in a peer-reviewed study and ready to deploy with two JARs and no application code changes.
+For cloud environments where RAPL is inaccessible — which covers most production deployments — OTJAE is one of the most practical tools available today for per-transaction energy attribution. It requires no application code changes, integrates with the OpenTelemetry pipeline teams already operate, and produces numbers validated against hardware measurements in a peer-reviewed study.
 
 Green software engineering starts with measurement. Now you have the tools.
 
@@ -283,7 +287,7 @@ Green software engineering starts with measurement. Now you have the tools.
 
 ### About the Author
 
-Manuel Steinberg is a PhD candidate at Hochschule München (Munich University of Applied Sciences) researching green software metrics covering green software engineering. His work focuses on practical tooling and measurement methodologies for accurately quantifying the energy footprint of software applications.
+Manuel Steinberg is a PhD candidate at Hochschule München (Munich University of Applied Sciences) researching green software metrics and measurement methodologies for accurately quantifying the energy footprint of software applications.
 
 ---
 
