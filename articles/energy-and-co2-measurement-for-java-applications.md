@@ -114,14 +114,14 @@ The pattern is the same for GCP and Azure — swap `aws` for `gcp` or `azure` an
 
 If your application runs on a CDI-enabled framework such as Quarkus or WildFly, a newer addition to the project [4] lets you skip the JVM flags entirely. You add a Maven dependency and CDI's bean auto-discovery wires up the span processor automatically.
 
+One important caveat before you choose this option: the CDI library is currently distributed via GitHub Packages, not Maven Central. That means `mvn compile` will not work out of the box — you need a GitHub personal access token and a one-time configuration step in `~/.m2/settings.xml`. If that setup is acceptable in your environment, the CDI integration is the cleaner approach for Quarkus and Jakarta EE projects. If you want zero extra configuration, stick with Option A. The examples below use Maven; Gradle projects can consume the library from the same repository using standard Maven-compatible repository configuration — check the project repository [4] for the latest guidance.
+
 | | Java Agent (Option A) | CDI Library (Option B) |
 |---|---|---|
 | Spring Boot | Recommended | Not applicable |
-| Quarkus | Works | Recommended |
-| WildFly / Jakarta EE | Works | Recommended |
+| Quarkus | Works | Preferred (requires GitHub Packages auth) |
+| WildFly / Jakarta EE | Works | Preferred (requires GitHub Packages auth) |
 | Plain JVM / legacy apps | Only option | Not applicable |
-
-One trade-off worth knowing upfront: the library is currently distributed via GitHub Packages rather than Maven Central, which means an authentication step that the JAR download approach doesn't require. The examples below use Maven; Gradle-based projects can consume the library from the same repository using standard Maven-compatible repository configuration — check the project repository [4] for the latest guidance.
 
 #### Step 1 — Authenticate with GitHub Packages
 
