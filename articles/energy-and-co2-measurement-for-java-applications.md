@@ -25,7 +25,7 @@ The OpenTelemetry Java Agent Extension [6] (OTJAE) — is an open-source add-on 
 
 All four feed an energy model that produces two outputs: **process-level** energy and CO2 consumption (useful for infrastructure cost attribution and sustainability reporting) and **per-transaction** energy and CO2 (useful for identifying which endpoints actually drive your power bill). The model uses the Cloud Carbon Footprint (CCF) [8] methodology and ships with pre-loaded coefficient tables for AWS, Azure, and GCP. On-premise hardware is supported too, with configurable parameters for CPU power, data-centre PUE (Power Usage Effectiveness, the ratio of total facility power to IT equipment power), and grid emissions factors.
 
-The attribution model is most accurate for thread-affine request processing typical of traditional servlet workloads. Reactive frameworks and other thread-hopping patterns have additional constraints covered in [Known Limitations](#known-limitations).
+The attribution model is most accurate for thread-affine request processing typical of traditional servlet workloads. Reactive frameworks and other thread-hopping patterns have additional constraints.
 
 A peer-reviewed study presented at FSE 2025 [9] validated OTJAE against direct Intel RAPL hardware measurements. RAPL is the hardware interface on Intel processors that reports actual socket-level energy consumption, but it is typically inaccessible in cloud environments. While RAPL gives accurate node-level energy totals, it cannot attribute consumption to individual transactions. OTJAE solves that complementary problem: it provides an estimated share of the system's energy consumption attributable to each request, in cloud deployments where hardware access is unavailable.
 
