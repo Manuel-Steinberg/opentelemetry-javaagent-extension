@@ -55,7 +55,18 @@ For cloud deployments, all the coefficients you need — processor TDP (Thermal 
 
 ## Instrumenting Your Application
 
-No application code changes are required. OTJAE supports two integration options, and both rely on the OpenTelemetry Java agent being active: Option A loads it via a JVM flag, Option B relies on the framework's dependency integration. Either way, OTJAE hooks into the active OpenTelemetry pipeline and enriches every span with resource-demand data.
+### Choosing an Integration Option
+
+No application code changes are required. OTJAE supports two integration options, both requiring the OpenTelemetry Java agent to be active:
+
+| | Java Agent (Option A) | CDI Library (Option B) |
+|---|---|---|
+| Spring Boot | Recommended | Not applicable |
+| Quarkus | Works | Preferred (requires GitHub Packages auth) |
+| WildFly / Jakarta EE | Works | Preferred (requires GitHub Packages auth) |
+| Plain JVM / legacy apps | Only option | Not applicable |
+
+Option A loads OTJAE via a JVM flag and works with any application where you control startup parameters. Option B uses CDI bean auto-discovery and is the cleaner integration for Quarkus and Jakarta EE projects, but requires a one-time GitHub Packages authentication step.
 
 Before picking an option, you need a backend to receive the data. OTJAE emits standard OpenTelemetry signals (metrics and span attributes), so any compatible backend will work. If you don't have one set up yet, the repository includes a ready-to-use docker-compose stack with Prometheus, Grafana, and an OpenTelemetry Collector:
 
@@ -116,14 +127,7 @@ The pattern is the same for GCP and Azure — swap `aws` for `gcp` or `azure` an
 
 If your application runs on a CDI-enabled framework such as Quarkus or WildFly, the latest release [6] lets you skip the JVM flags entirely. You add a dependency and CDI's bean auto-discovery wires up the span processor automatically.
 
-One important caveat before you choose this option: the CDI library is currently distributed via GitHub Packages, not Maven Central. That means `mvn compile` will not work out of the box — you need a GitHub personal access token and a one-time configuration step in `~/.m2/settings.xml`. If that setup is acceptable in your environment, the CDI integration is the cleaner approach for Quarkus or Jakarta EE projects. If you want zero extra configuration, stick with Option A. The examples below use Maven; Gradle projects can consume the library from the same repository using standard Maven-compatible repository configuration — check the project repository [6] for the latest guidance.
-
-| | Java Agent (Option A) | CDI Library (Option B) |
-|---|---|---|
-| Spring Boot | Recommended | Not applicable |
-| Quarkus | Works | Preferred (requires GitHub Packages auth) |
-| WildFly / Jakarta EE | Works | Preferred (requires GitHub Packages auth) |
-| Plain JVM / legacy apps | Only option | Not applicable |
+One important caveat: the CDI library is currently distributed via GitHub Packages, not Maven Central, so `mvn compile` will not work out of the box — you need a GitHub personal access token and a one-time configuration step in `~/.m2/settings.xml`. The examples below use Maven; Gradle projects can consume the library from the same repository using standard Maven-compatible repository configuration — check the project repository [6] for the latest guidance.
 
 #### Step 1 — Authenticate with GitHub Packages
 
@@ -185,22 +189,15 @@ Environment variables work equally well (replace dots with underscores, uppercas
 
 ## Configuration Reference
 
-The table below covers the most commonly needed properties. Disk and network I/O are off by default because they require Linux kernel ≥ 3.14. On-premise parameters — CPU idle and peak power, PUE, grid emissions factor, embodied emissions — follow the same `-Dio.retit.*` naming pattern and are fully documented in the repository README [6].
+The three properties shown in the examples — `io.retit.emissions.cloud.provider`, `.region`, and `.instance.type` — are the minimum needed to get energy and CO2 figures. Three further properties are worth knowing:
 
-| System Property | Default | Description |
-|----------------|---------|-------------|
-| `io.retit.log.cpu.demand` | `true` | Capture CPU time per span |
-| `io.retit.log.heap.demand` | `true` | Capture heap allocation per span |
-| `io.retit.log.disk.demand` | `false` | Capture disk I/O per span (Linux only) |
-| `io.retit.log.network.demand` | `false` | Capture network I/O per span (Linux only) |
-| `io.retit.log.gc.event` | `true` | Register a listener to capture garbage collection events |
-| `io.retit.emissions.cloud.provider` | — | `aws`, `azure`, `gcp`, or `OnPremise` |
-| `io.retit.emissions.cloud.provider.region` | — | Cloud region string |
-| `io.retit.emissions.cloud.provider.instance.type` | — | VM instance type (e.g. `m5.xlarge`) |
-| `io.retit.emissions.storage.type` | `SSD` | Storage type used for energy calculation (`HDD` or `SSD`) |
-| `io.retit.emissions.hardware.lifespan` | `4` | Expected hardware lifespan in years (for embodied emissions amortisation) |
+| System Property | Default | Notes |
+|----------------|---------|-------|
+| `io.retit.log.disk.demand` | `false` | Enable disk I/O capture per span (Linux kernel ≥ 3.14 required) |
+| `io.retit.log.network.demand` | `false` | Enable network I/O capture per span (Linux kernel ≥ 3.14 required) |
+| `io.retit.emissions.hardware.lifespan` | `4` | Hardware lifespan in years; adjusting this moves the embodied-emissions share (see *What to Try Next* below) |
 
-The complete reference — including on-premise overrides — is in the repository README [6].
+The full reference — including CPU and memory capture toggles and all on-premise overrides — is in the repository README [6].
 
 ## Reading the Metrics
 
