@@ -14,18 +14,16 @@ This article walks through one such tool — the OpenTelemetry Java Agent Extens
 
 ## What Is OTJAE
 
-The OpenTelemetry Java Agent Extension [6] (OTJAE) — is an open-source add-on for the official OpenTelemetry Java auto-instrumentation agent [7]. The OpenTelemetry agent is a required component in both integration options covered below; if you already use it, adding OTJAE is just an extra flag or one dependency. It adds four resource-demand dimensions to every traced transaction:
+The OpenTelemetry Java Agent Extension [6] (OTJAE) is an open-source add-on for the official OpenTelemetry Java auto-instrumentation agent [7]. The OpenTelemetry agent is a required component in both integration options covered below; if you already use it, adding OTJAE is just an extra flag or one dependency. It adds four resource-demand dimensions to every traced transaction:
 
 | Dimension | Unit | Platform |
 |-----------|------|----------|
 | CPU time  | milliseconds | Linux, macOS, Windows |
 | Heap allocation | bytes | Linux, macOS, Windows |
-| Disk I/O (read + write) | bytes | Linux (kernel ≥ 3.14) |
-| Network I/O (read + write) | bytes | Linux (kernel ≥ 3.14) |
+| Disk I/O (read + write) | bytes | Linux (kernel >= 3.14) |
+| Network I/O (read + write) | bytes | Linux (kernel >= 3.14) |
 
 All four feed an energy model that produces two outputs: **process-level** energy and CO2 consumption (useful for infrastructure cost attribution and sustainability reporting) and **per-transaction** energy and CO2 (useful for identifying which endpoints actually drive your power bill). The model uses the Cloud Carbon Footprint (CCF) [8] methodology and ships with pre-loaded coefficient tables for AWS, Azure, and GCP. On-premise hardware is supported too, with configurable parameters for CPU power, data-centre PUE (Power Usage Effectiveness, the ratio of total facility power to IT equipment power), and grid emissions factors.
-
-The attribution model is most accurate for thread-affine request processing typical of traditional servlet workloads. Reactive frameworks and other thread-hopping patterns have additional constraints.
 
 A peer-reviewed study presented at FSE 2025 [9] validated OTJAE against direct Intel RAPL hardware measurements. RAPL is the hardware interface on Intel processors that reports actual socket-level energy consumption, but it is typically inaccessible in cloud environments. While RAPL gives accurate node-level energy totals, it cannot attribute consumption to individual transactions. OTJAE solves that complementary problem: it provides an estimated share of the system's energy consumption attributable to each request, in cloud deployments where hardware access is unavailable.
 
@@ -40,13 +38,13 @@ Knowing how the model works tells you when to trust the numbers and when to be c
 Each transaction gets a share of the server's power proportional to the CPU time it consumed. OTJAE implements the linear power model from Etsy's *Cloud Jewels* [10], which estimates instantaneous CPU power as an interpolation between idle and full-load power:
 
 ```
-P_CPU = P_min + (CPU_utilisation × (P_max − P_min))
+P_CPU = P_min + (CPU_utilisation x (P_max - P_min))
 ```
 
 For a single transaction, CPU utilisation is derived from the thread's CPU-time delta across the span:
 
 ```
-CPU_util_transaction = thread_cpu_time_ms / (CPU_cores × span_duration_ms)
+CPU_util_transaction = thread_cpu_time_ms / (CPU_cores x span_duration_ms)
 ```
 
 The same proportional logic applies to memory, disk, and network. Heap allocation is used as a proxy for memory demand and does not directly represent DRAM power draw. Carbon emissions are then the energy value multiplied by the grid emissions factor (gCO2e/kWh) for the configured region, plus a pro-rated share of the hardware's embodied emissions — the carbon cost of manufacturing the hardware.
@@ -68,7 +66,7 @@ No application code changes are required. OTJAE supports two integration options
 
 Option A loads OTJAE via a JVM flag and works with any application where you control startup parameters. Option B uses CDI bean auto-discovery and is the cleaner integration for Quarkus and Jakarta EE projects, but requires a one-time GitHub Packages authentication step.
 
-Before picking an option, you need a backend to receive the data. OTJAE emits standard OpenTelemetry signals (metrics and span attributes), so any compatible backend will work. If you don't have one set up yet, the repository includes a ready-to-use docker-compose stack with Prometheus, Grafana, and an OpenTelemetry Collector:
+Before picking an option, you need a backend to receive the data. OTJAE emits standard OpenTelemetry signals (metrics and span attributes), so any compatible backend will work. If you don't have one set up yet, the repository includes an example ready-to-use docker-compose stack with Prometheus, Grafana, and an OpenTelemetry Collector:
 
 ```bash
 docker compose -f examples/docker/docker-compose.yml up -d
@@ -185,7 +183,7 @@ io.retit.emissions.cloud.provider.region=eu-central-1
 io.retit.emissions.cloud.provider.instance.type=t3.medium
 ```
 
-Environment variables work equally well (replace dots with underscores, uppercase). A complete working example is available in the repository's examples directory [13] alongside the Spring and plain-JDK variants.
+Environment variables work equally well; replace dots with underscores and use uppercase. A complete working example is available in the repository's examples directory [13] alongside the Spring and plain-JDK variants.
 
 ## Configuration Reference
 
@@ -193,8 +191,8 @@ The three properties shown in the examples — `io.retit.emissions.cloud.provide
 
 | System Property | Default | Notes |
 |----------------|---------|-------|
-| `io.retit.log.disk.demand` | `false` | Enable disk I/O capture per span (Linux kernel ≥ 3.14 required) |
-| `io.retit.log.network.demand` | `false` | Enable network I/O capture per span (Linux kernel ≥ 3.14 required) |
+| `io.retit.log.disk.demand` | `false` | Enable disk I/O capture per span (Linux kernel >= 3.14 required) |
+| `io.retit.log.network.demand` | `false` | Enable network I/O capture per span (Linux kernel >= 3.14 required) |
 | `io.retit.emissions.hardware.lifespan` | `4` | Hardware lifespan in years; adjusting this moves the embodied-emissions share (see *What to Try Next* below) |
 
 The full reference — including CPU and memory capture toggles and all on-premise overrides — is in the repository README [6].
@@ -261,15 +259,13 @@ The FSE 2025 study [9] measured accuracy as the ratio of OTJAE's power estimate 
 
 ## Known Limitations
 
-**Reactive and virtual-thread workloads**: OTJAE measures resource demand per span by comparing thread-local readings at span start and end. If a span hops between threads, which is common in reactive frameworks like Project Reactor [14] or RxJava [15] and possible with virtual threads under heavy continuation switching, the delta calculation is invalid. The extension detects this and excludes affected spans from metric aggregation; the raw span attributes are still attached for manual inspection. Memory demand cannot be captured for virtual threads at all due to JVM constraints. CPU demand falls back to the carrier thread, which may overestimate for workloads with many parked virtual threads.
+**OS scope**: Disk and network demand require Linux with kernel >= 3.14. On macOS and Windows, you get CPU and heap only. Containerised environments may expose host-level rather than container-local I/O counters depending on runtime configuration.
 
-**OS scope**: Disk and network demand require Linux with kernel ≥ 3.14. On macOS and Windows you get CPU and heap only. Containerised environments may expose host-level rather than container-local I/O counters depending on runtime configuration.
-
-**Overhead**: Two thread-local reads per span — one at start, one at end. Benchmarks on the Spring example application show added latency below 1% at typical load. Up-to-date figures are in the README [6].
+**Overhead**: OTJAE performs two thread-local reads per span: one at span start and one at span end. Benchmarks on the Spring example application show added latency below 1% at typical load. Up-to-date figures are in the README [6].
 
 ## What to Try Next
 
-Once the setup is running, a few experiments are worth doing immediately.
+Once the setup is running, a few experiments are worth doing.
 
 1. **Load test it** — the example application ships with an Apache JMeter [16] script. Run it and watch the dashboards update in real time. The numbers are only meaningful under realistic load.
 
