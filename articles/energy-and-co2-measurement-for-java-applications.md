@@ -2,7 +2,7 @@
 
 *How to turn any Java application into a green software observatory — without touching the code*
 
-## Why Software Energy Consumption Matters
+## Why software energy consumption matters
 
 The IT industry accounts for roughly 2–4% of global greenhouse-gas emissions [1] — comparable to aviation [2]. Yet most teams optimise for throughput, latency, and reliability; energy efficiency rarely reaches the sprint board.
 
@@ -12,7 +12,7 @@ Specialised tools like JoularJX [5] read Intel's RAPL interface, which reports a
 
 This article walks through one such tool — the OpenTelemetry Java Agent Extension (OTJAE) — from zero to per-transaction CO2 estimates in minutes.
 
-## What Is OTJAE
+## What is OTJAE
 
 OTJAE [6] is an open-source add-on for the official OpenTelemetry Java auto-instrumentation agent [7], which is required for either integration option; if you already run it, OTJAE adds one flag or one dependency. It adds four resource-demand dimensions to every traced transaction:
 
@@ -27,7 +27,7 @@ All four feed an energy model with two outputs: **process-level** energy and CO2
 
 A peer-reviewed study at FSE 2025 [9] validated OTJAE against direct Intel RAPL hardware measurements. RAPL gives accurate node-level totals but cannot attribute consumption to individual transactions — the gap OTJAE fills.
 
-## How the Numbers Are Calculated
+## How the numbers are calculated
 
 Knowing how the model works tells you when to trust its numbers.
 
@@ -41,6 +41,8 @@ Each transaction receives a share of the server's power proportional to the CPU 
 P_CPU = P_min + (CPU_utilisation x (P_max - P_min))
 ```
 
+*(P_min and P_max are VM-instance-level values from the CCF dataset; idle power is distributed proportionally across transactions rather than counted once per transaction.)*
+
 For a single transaction, utilisation comes from the thread's CPU-time delta across the span:
 
 ```
@@ -51,11 +53,11 @@ Multiplying this share of power by the span's duration gives the transaction's e
 
 For cloud deployments, every coefficient — processor TDP (Thermal Design Power, rated max heat output at full load), memory power, embodied emissions, and regional grid factors — is pre-loaded from the CCF dataset. That is why provider, region, and instance type unlock the full picture: without them, the extension measures resource demand but has no power envelope to map it to.
 
-## Instrumenting Your Application
+## Instrumenting your application
 
 Switching OTJAE on takes three things and no application-code changes: a way to load it, a backend to receive its data, and a cloud or hardware profile that turns demand into energy and CO2. This section covers each.
 
-### Choosing an Integration Option
+### Choosing an integration option
 
 OTJAE offers two integration options, both requiring the OpenTelemetry Java agent:
 
@@ -74,11 +76,8 @@ Before picking an option, you need a backend. OTJAE emits standard OpenTelemetry
 docker compose -f examples/docker/docker-compose.yml up -d
 ```
 
-> **How the data flows**: The application pushes metrics via OTLP to the Collector (`localhost:4317`); Prometheus scrapes them from the Collector and never talks to the application directly. The stack is pre-configured, so the application only needs to target the Collector.
 
-That same stack powers the Spring example later.
-
-### Option A: JVM Flags (Spring Boot, Plain JVM, Legacy Apps)
+### Option A: JVM flags (Spring Boot, plain JVM, legacy apps)
 
 This works with any JVM application where you control startup parameters: two JARs and a handful of flags.
 
@@ -118,7 +117,7 @@ Without a cloud profile the extension captures resource demand but cannot conver
 
 The pattern is the same for GCP and Azure — swap `aws` for `gcp` or `azure` and adjust region and instance type. For on-premise hardware, replace the cloud properties with idle and peak CPU power (from SPECpower_ssj2008 [11]), a PUE for your data centre, and your country's grid emissions factor. Germany's 2024 factor [12] is roughly 363 g CO2e/kWh, down from 434 in 2022.
 
-### Option B: Java Dependency (Quarkus and CDI Frameworks)
+### Option B: Java dependency (Quarkus and CDI frameworks)
 
 On a CDI-enabled framework such as Quarkus or WildFly, the latest release [6] lets you skip the JVM flags: add a dependency and CDI's bean auto-discovery wires up the span processor automatically.
 
@@ -180,17 +179,13 @@ io.retit.emissions.cloud.provider.instance.type=t3.medium
 
 Environment variables work too — replace dots with underscores and uppercase. A complete example lives in the examples directory [13].
 
-## Configuration Reference
-
-The three properties shown above — `io.retit.emissions.cloud.provider`, `.region`, and `.instance.type` — are the minimum needed for energy and CO2 figures. A few others are worth knowing: `io.retit.log.disk.demand` and `io.retit.log.network.demand` (both `false` by default) enable per-span disk and network I/O capture on Linux with kernel >= 3.14, and `io.retit.emissions.hardware.lifespan` (default `4` years) tunes the embodied-emissions share. The complete reference — CPU and memory capture toggles, the on-premise CPU-power, PUE and grid-factor overrides, and the full metric and span-attribute names — lives in the repository README [6].
-
-## Reading the Metrics
+## Reading the metrics
 
 OTJAE exports two categories of metric, and the distinction matters when building dashboards or alerts. **Resource demand counters** are cumulative per-instance totals (CPU time in ms, heap allocation, disk and network I/O in bytes) built for rate functions — `rate()` in PromQL gives the **process-level** view, and dividing by request rate gives the **per-transaction** view promised earlier. **Emissions configuration gauges** are published once at startup and stay static — idle and peak CPU power, grid emissions factor, PUE, and per-unit energy coefficients — and the pre-built dashboards use them to compute CO2e in Grafana, with no pre-aggregation in the JVM.
 
 Every span additionally carries the same demand as **span attributes** (start and end readings), enabling trace-level profiling: open a slow request in any trace viewer, walk the span tree, and see how much CPU or heap each method call consumed. Full metric and attribute names are in the README [6].
 
-## Seeing It in Practice
+## Seeing it in practice
 
 The repository ships with a ready-to-run Spring Boot example — the same application used in the FSE 2025 study [9]. It exposes three REST endpoints that differ in how much work they do:
 
@@ -230,13 +225,13 @@ The real gain here is transparency: every endpoint now carries its own Software 
 
 The examples directory [13] also contains a Quarkus REST service with its own dashboard and plain-JDK examples for JDK 21 and JDK 8.
 
-## Accuracy in Practice
+## Accuracy in practice
 
 The FSE 2025 study [9] measured accuracy as the ratio of OTJAE's estimate to direct RAPL readings — how much of the real measured power the model accounts for. The pattern is consistent: the higher the load, the closer the estimate. At around 50% CPU utilisation the model accounts for roughly 75% of measured power; near full load, above 98%. Below 30% it captures only around 60%, because server hardware does not follow a linear power curve at low load: storage controllers, NICs, and the BMC (Baseboard Management Controller) draw significant fixed power that a CPU-proportional model underestimates.
 
 **Practical guideline**: below 30–40% sustained CPU utilisation, treat OTJAE numbers as a lower bound, not an absolute figure. At medium-to-high utilisation, they are accurate enough for most operational and optimisation work.
 
-## Known Limitations
+## Known limitations
 
 **OS scope**: Disk and network demand require Linux with kernel >= 3.14; on macOS and Windows you get CPU and heap only. Containers may expose host-level rather than container-local I/O counters, depending on runtime configuration.
 
@@ -244,7 +239,7 @@ The FSE 2025 study [9] measured accuracy as the ratio of OTJAE's estimate to dir
 
 **Overhead**: OTJAE performs two thread-local reads per span (start and end). Benchmarks on the Spring example show added latency below 1% at typical load; up-to-date figures are in the README [6].
 
-## What to Try Next
+## What to try next
 
 With the setup running, a few experiments are worth doing.
 
@@ -253,8 +248,6 @@ With the setup running, a few experiments are worth doing.
 2. **Change the region** — switch `eu-central-1` (low-carbon grid) to a coal-heavy region and watch the CO2 estimate climb without touching any code.
 
 3. **Add an energy budget to CI** — use the OpenTelemetry metrics endpoint to fail the build if a key transaction's CPU demand per request crosses a threshold.
-
-4. **Play with hardware lifespan** — set `io.retit.emissions.hardware.lifespan` to 3 or 6 years to see how refresh cycles shift the embodied-emissions share.
 
 ## Conclusion
 
@@ -268,7 +261,7 @@ Green software engineering starts with measurement. Now you have the tools to do
 
 ---
 
-### About the Author
+### About the author
 
 Manuel Steinberg is a PhD candidate at Hochschule München (Munich University of Applied Sciences) researching green software metrics and measurement methodologies for accurately quantifying the energy footprint of software applications.
 
