@@ -145,7 +145,7 @@ Then declare the repository in your `pom.xml`:
 <dependency>
   <groupId>io.retit</groupId>
   <artifactId>opentelemetry-java-agent-extension-cdi-library</artifactId>
-  <version>0.1.1-beta</version>
+  <version>0.1.2-beta</version>
 </dependency>
 ```
 
@@ -169,7 +169,7 @@ Environment variables work too. Replace dots with underscores and use uppercase.
 
 ## Seeing it in practice
 
-The repository [6] includes a ready-to-run Spring Boot example, the same application used in the validation study [9]. It exposes `GET /getData`, `POST /postData` and `DELETE /deleteData` under `http://localhost:8081/test-rest-endpoint/`, three endpoints that differ in how much work they do. The Maven build stages both agent JARs under `target/jib/otel/`; for your own application, use the JAR paths from Option A, Step 1.
+The repository [6] includes a ready-to-run Spring Boot example, the same application used in the validation study [9]. It exposes `GET /getData`, `POST /postData` and `DELETE /deleteData` under `http://localhost:8081/test-rest-endpoint/`, three endpoints that differ in how much work they do. Building it needs JDK 21 or newer, and the backend stack needs a running Docker daemon. The Maven build stages both agent JARs under `target/jib/otel/`; for your own application, use the JAR paths from Option A, Step 1.
 
 ```bash
 # Build the project (jib.skip skips the container build, which needs a running Docker daemon)
@@ -212,7 +212,7 @@ Every endpoint now carries its own Software Carbon Intensity, an SCI whose funct
 
 Behind those dashboards are two categories of metrics, and the distinction matters when building your own dashboards or alerts.
 
-**Resource demand counters** capture CPU time in milliseconds and heap, disk, and network I/O in bytes. OTJAE records them per transaction, tagged with the transaction's span attributes, so the resource demand of each transaction is available directly as a metric. Process-wide CPU time is published as a separate metric, `io.retit.emissions.java.process.cpu.time`. In PromQL, `rate()` turns the cumulative counters into a per-second view.
+**Resource demand counters** capture CPU time in milliseconds and heap, disk, and network I/O in bytes. OTJAE records them per transaction, tagged with the transaction's span attributes, so the resource demand of each transaction is available directly as a metric. The four counters are `io.retit.resource.demand.cpu.ms`, `.memory.bytes`, `.storage.bytes` and `.network.bytes`; process-wide CPU time is published separately as `io.retit.emissions.java.process.cpu.time`. Prometheus mangles those names - dots become underscores, the unit is appended and counters gain a `_total` suffix, so the first one is queried as `io_retit_resource_demand_cpu_ms_milliseconds_total`. In PromQL, `rate()` turns the cumulative counters into a per-second view.
 
 **Emissions configuration gauges** carry the model's constants: idle and peak CPU power, grid emissions factor, PUE, and per-unit energy coefficients. They are re-exported on every collection interval, but their values are fixed at startup. The pre-built dashboards use them to compute CO2eq directly in Grafana, with no pre-aggregation inside the JVM.
 
