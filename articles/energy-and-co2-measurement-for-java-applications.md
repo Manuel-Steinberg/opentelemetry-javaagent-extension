@@ -65,11 +65,13 @@ Two JARs and a handful of flags.
 ```bash
 # OpenTelemetry Java Agent
 curl -L -o opentelemetry-javaagent.jar \
-  https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar
+  https://github.com/open-telemetry/opentelemetry-java-instrumentation/\
+releases/latest/download/opentelemetry-javaagent.jar
 
 # OpenTelemetry Java Agent Extension (OTJAE)
 curl -L -o io.retit.opentelemetry.javaagent.extension.jar \
-  https://github.com/RETIT/opentelemetry-javaagent-extension/releases/latest/download/io.retit.opentelemetry.javaagent.extension.jar
+  https://github.com/RETIT/opentelemetry-javaagent-extension/releases/latest/\
+download/io.retit.opentelemetry.javaagent.extension.jar
 ```
 
 #### Step 2: Start your application with the agent
@@ -134,7 +136,9 @@ Then declare the repository in your `pom.xml`:
   <repository>
     <id>github</id>
     <name>GitHub RETIT Apache Maven Packages</name>
-    <url>https://maven.pkg.github.com/RETIT/opentelemetry-javaagent-extension</url>
+    <url>
+      https://maven.pkg.github.com/RETIT/opentelemetry-javaagent-extension
+    </url>
   </repository>
 </repositories>
 ```
@@ -265,20 +269,36 @@ Manuel Steinberg is a PhD candidate at Hochschule München (Munich University of
 
 ## References
 
-[1] https://pmc.ncbi.nlm.nih.gov/articles/PMC8441580/
-[2] https://www.iea.org/energy-system/transport/aviation
-[3] https://eur-lex.europa.eu/eli/dir/2022/2464/oj/eng
-[4] https://sci.greensoftware.foundation/ · https://www.iso.org/standard/86612.html
-[5] https://github.com/joular/joularjx
-[6] https://github.com/RETIT/opentelemetry-javaagent-extension
-[7] https://github.com/open-telemetry/opentelemetry-java-instrumentation
-[8] https://www.cloudcarbonfootprint.org/docs/methodology/
-[9] https://doi.org/10.1145/3696630.3728709
-[10] https://www.etsy.com/codeascraft/cloud-jewels-estimating-kwh-in-the-cloud
-[11] https://www.spec.org/power_ssj2008/results/
-[12] https://www.umweltbundesamt.de/themen/co2-emissionen-pro-kilowattstunde-strom-2024
-[13] https://github.com/RETIT/opentelemetry-javaagent-extension/tree/main/examples
-[14] https://jmeter.apache.org/
-[15] https://dl.gi.de/items/3cbc03f9-64b5-41a8-be00-d45cea2412cb
-[16] https://hotcarbon.org/assets/2026/paper-46.pdf
-[17] https://dataviz.boavizta.org/
+[1] <https://pmc.ncbi.nlm.nih.gov/articles/PMC8441580/>
+
+[2] <https://www.iea.org/energy-system/transport/aviation>
+
+[3] <https://eur-lex.europa.eu/eli/dir/2022/2464/oj/eng>
+
+[4] <https://sci.greensoftware.foundation/> · <https://www.iso.org/standard/86612.html>
+
+[5] <https://github.com/joular/joularjx>
+
+[6] <https://github.com/RETIT/opentelemetry-javaagent-extension>
+
+[7] <https://github.com/open-telemetry/opentelemetry-java-instrumentation>
+
+[8] <https://www.cloudcarbonfootprint.org/docs/methodology/>
+
+[9] <https://doi.org/10.1145/3696630.3728709>
+
+[10] <https://www.etsy.com/codeascraft/cloud-jewels-estimating-kwh-in-the-cloud>
+
+[11] <https://www.spec.org/power_ssj2008/results/>
+
+[12] <https://www.umweltbundesamt.de/themen/co2-emissionen-pro-kilowattstunde-strom-2024>
+
+[13] <https://github.com/RETIT/opentelemetry-javaagent-extension/tree/main/examples>
+
+[14] <https://jmeter.apache.org/>
+
+[15] <https://dl.gi.de/items/3cbc03f9-64b5-41a8-be00-d45cea2412cb>
+
+[16] <https://hotcarbon.org/assets/2026/paper-46.pdf>
+
+[17] <https://dataviz.boavizta.org/>
