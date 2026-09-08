@@ -189,6 +189,17 @@ java -javaagent:$APP/jib/otel/opentelemetry-javaagent.jar \
   -jar $APP/spring-rest-service.jar
 ```
 
+Fire a few requests at the endpoints so there is something to see; an idle app leaves the dashboards empty.
+
+```bash
+BASE=http://localhost:8081/test-rest-endpoint
+for i in $(seq 1 20); do
+  curl -s "$BASE/getData" -o /dev/null
+  curl -s -X POST "$BASE/postData" -o /dev/null
+  curl -s -X DELETE "$BASE/deleteData" -o /dev/null
+done
+```
+
 Open `http://localhost:3000/grafana/dashboards`. Grafana is served from the `/grafana` sub-path, so the bare `http://localhost:3000` returns a blank page.
 
 ![Spring REST service Grafana dashboard showing SCI CO2eq per transaction, CPU demand, and emission calculation factors](../img/spring_dashboard.png)
@@ -209,7 +220,7 @@ Every span additionally carries the same demand as **span attributes** (start an
 
 ## Accuracy in practice
 
-The validation study, presented at the DevOpsSustain 2025 workshop [9], ran that same example on a bare-metal two-socket Xeon server (OTJAE v0.0.15-alpha) and compared its process power estimate against RAPL readings for the same machine. The pattern is clear: the higher the load, the closer the estimate, and the model always errs on the low side.
+A peer-reviewed study presented at the DevOpsSustain 2025 workshop [9] compared OTJAE's process-level estimate against RAPL readings on a bare-metal Xeon server (OTJAE v0.0.15-alpha). The higher the load, the closer the estimate, and the model always errs on the low side:
 
 | System CPU utilisation | OTJAE estimate as a share of RAPL-measured power |
 |---|---|
@@ -218,13 +229,9 @@ The validation study, presented at the DevOpsSustain 2025 workshop [9], ran that
 | 80 % | 90 % |
 | 98 % | 98 % |
 
-Two effects explain the gap at the bottom. A processor's power draw does not scale linearly with utilisation, so a straight line between idle and full-load power fits poorly there. And the model attributes power in proportion to CPU time, while baseline and uncore draw is incurred whether or not the application does anything; at low utilisation that load-independent share is large, and none of it lands on the application.
+The gap at low load is expected: power does not scale linearly with utilisation, and the baseline draw of a mostly idle machine is not caused by your application. Note what was checked, though — the CPU model, at process level, on bare metal. The memory, storage, and network models, and the virtualised environments OTJAE is built for, have not been validated this way. Where RAPL is readable it stays the better number: the same study measured JoularJX above 97 percent at every load level.
 
-Three caveats on how far these numbers carry. They are **process-level**: at transaction level the study only checked internal consistency, where OTJAE's per-transaction values summed to within 2.5 W of its own process total. Each transaction therefore inherits the process-level error rather than escaping it. Only the **CPU model** was evaluated; the memory, storage, and network models remain unvalidated. And the measurements were taken on bare metal, because that is where RAPL works: the virtualised environments that are OTJAE's actual reason to exist have not been validated this way.
-
-The study also ran JoularJX alongside OTJAE: the RAPL-based tool stayed between 97 and 99.7 percent accurate at *every* load level, low load included. Where you can read RAPL, RAPL is the better number; OTJAE's case is the environment where you cannot.
-
-**Practical guideline**: below roughly 30 percent sustained CPU utilisation, treat OTJAE numbers as a lower bound, not an absolute figure. At medium-to-high utilisation, they are accurate enough for most operational and optimisation work.
+**Practical guideline**: below roughly 30 percent sustained CPU utilisation, treat OTJAE numbers as a lower bound rather than an absolute figure. Above that, they are accurate enough for comparing endpoints and tracking changes over time.
 
 ## Known limitations
 
