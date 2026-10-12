@@ -10,13 +10,23 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <auto-service.version>1.1.1</auto-service.version>
-        <opentelemetry.agent.version>2.27.0</opentelemetry.agent.version>
+        <opentelemetry.agent.version>2.32.0</opentelemetry.agent.version>
     </properties>
 
     <modules>
+        <module>core</module>
+        <module>cdi-library</module>
         <module>extension</module>
         <module>examples</module>
     </modules>
+
+    <distributionManagement>
+        <repository>
+            <id>github</id>
+            <name>GitHub Packages</name>
+            <url>https://maven.pkg.github.com/RETIT/opentelemetry-javaagent-extension</url>
+        </repository>
+    </distributionManagement>
 
     <dependencyManagement>
         <dependencies>
@@ -25,7 +35,7 @@
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-bom</artifactId>
-                <version>1.61.0</version>
+                <version>1.66.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -33,14 +43,14 @@
             <dependency>
                 <groupId>io.opentelemetry.instrumentation</groupId>
                 <artifactId>opentelemetry-instrumentation-annotations</artifactId>
-                <version>2.27.0</version>
+                <version>2.32.0</version>
             </dependency>
 
             <!-- EPL v2.0 https://github.com/junit-team/junit5/blob/main/LICENSE.md -->
             <dependency>
                 <groupId>org.junit.jupiter</groupId>
                 <artifactId>junit-jupiter</artifactId>
-                <version>6.0.3</version>
+                <version>6.1.3</version>
                 <scope>test</scope>
             </dependency>
 
@@ -66,7 +76,7 @@
                 <groupId>org.mockito</groupId>
                 <artifactId>mockito-core</artifactId>
                 <!-- We need a Java 8 version of Mockito -->
-                <version>5.23.0</version>
+                <version>5.24.0</version>
                 <scope>test</scope>
             </dependency>
 
@@ -74,7 +84,7 @@
             <dependency>
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-simple</artifactId>
-                <version>2.0.17</version>
+                <version>2.0.20</version>
                 <scope>test</scope>
             </dependency>
 
@@ -83,17 +93,18 @@
             <dependency>
                 <groupId>net.java.dev.jna</groupId>
                 <artifactId>jna</artifactId>
-                <version>5.18.1</version>
+                <version>5.19.1</version>
             </dependency>
         </dependencies>
 
     </dependencyManagement>
 
+
     <build>
         <plugins>
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.15.0</version>
+                <version>3.16.0</version>
                 <configuration>
                     <source>1.8</source>
                     <target>1.8</target>
@@ -144,7 +155,7 @@
             <plugin>
                 <groupId>com.github.spotbugs</groupId>
                 <artifactId>spotbugs-maven-plugin</artifactId>
-                <version>4.9.8.3</version>
+                <version>4.10.4.1</version>
                 <configuration>
                     <excludeFilterFile>${user.dir}/etc/spotbugs-exclusion-filter.xml</excludeFilterFile>
                 </configuration>
@@ -159,6 +170,37 @@
                     <socketTimeout>1000</socketTimeout>
                     <connectionRequestTimeout>1000</connectionRequestTimeout>
                     <errorRemedy>ignore</errorRemedy>
+                    <!--
+                        gnu.org is frequently unreachable (blocked by firewalls, rate-limited, etc.).
+                        Redirect all gnu.org license URLs to the equivalent SPDX pages before any
+                        HTTP request is attempted, so the plugin never tries to contact gnu.org at all.
+                    -->
+                    <licenseUrlReplacements>
+                        <licenseUrlReplacement>
+                            <regexp>https?://www\.gnu\.org/licenses/lgpl-2\.1.*</regexp>
+                            <replacement>https://spdx.org/licenses/LGPL-2.1-only.html</replacement>
+                        </licenseUrlReplacement>
+                        <licenseUrlReplacement>
+                            <regexp>https?://www\.gnu\.org/licenses/(lgpl-3\.0.*|lgpl\.html)</regexp>
+                            <replacement>https://spdx.org/licenses/LGPL-3.0-only.html</replacement>
+                        </licenseUrlReplacement>
+                        <licenseUrlReplacement>
+                            <regexp>https?://www\.gnu\.org/licenses/lgpl(?:-[12]\..*)?</regexp>
+                            <replacement>https://spdx.org/licenses/LGPL-2.1-or-later.html</replacement>
+                        </licenseUrlReplacement>
+                        <licenseUrlReplacement>
+                            <regexp>https?://www\.gnu\.org/licenses/gpl-2\.0.*</regexp>
+                            <replacement>https://spdx.org/licenses/GPL-2.0-or-later.html</replacement>
+                        </licenseUrlReplacement>
+                        <licenseUrlReplacement>
+                            <regexp>https?://www\.gnu\.org/licenses/gpl-3\.0.*</regexp>
+                            <replacement>https://spdx.org/licenses/GPL-3.0-or-later.html</replacement>
+                        </licenseUrlReplacement>
+                        <licenseUrlReplacement>
+                            <regexp>https?://www\.gnu\.org/licenses/agpl-3\.0.*</regexp>
+                            <replacement>https://spdx.org/licenses/AGPL-3.0-or-later.html</replacement>
+                        </licenseUrlReplacement>
+                    </licenseUrlReplacements>
                 </configuration>
                 <executions>
                     <execution>

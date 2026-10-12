@@ -4,7 +4,7 @@
 This repository contains an **extension** for the [OpenTelemetry Java Auto-Instrumentation agent](https://github.com/open-telemetry/opentelemetry-java-instrumentation) **to collect resource demand data and to publish carbon emissions**. The following readme assumes that you are already familiar with the basic concepts of [OpenTelemetry](https://opentelemetry.io/) [Traces](https://opentelemetry.io/docs/concepts/signals/traces/) and [Metrics](https://opentelemetry.io/docs/concepts/signals/metrics/), otherwise please read the corresponding documentation first before you continue. 
 
 This Java agent extension attaches 
-resource demand data as [Attributes](https://opentelemetry.io/docs/concepts/signals/traces/#attributes) to all [Spans](https://opentelemetry.io/docs/concepts/signals/traces/#spans) captured by the Java Auto-Instrumentation Agent (e.g., API calls), such as storage, network and memory demand in bytes, and CPU demand in milliseconds as shown in Figure 1. You can find an overview of the Span [Attributes](https://opentelemetry.io/docs/concepts/signals/traces/#attributes) added by this extension in the [corresponding section](#opentelemetry-tracing-span-attributes-added-by-this-extension). You can view and analyze these attributes with any compatible OpenTelemetry tracing backend such as [Jaeger](https://www.jaegertracing.io/). If you are interested to automate the analysis of this data of this data please check out our [RETIT Performance Analysis Suite](https://www.retit.io/) which will give you an automated aggregation of these values.
+resource demand data as [Attributes](https://opentelemetry.io/docs/concepts/signals/traces/#attributes) to all [Spans](https://opentelemetry.io/docs/concepts/signals/traces/#spans) captured by the Java Auto-Instrumentation Agent (e.g., API calls), such as storage, network and memory demand in bytes, and CPU demand in milliseconds as shown in Figure 1. You can find an overview of the Span [Attributes](https://opentelemetry.io/docs/concepts/signals/traces/#attributes) added by this extension in the [corresponding section](#opentelemetry-tracing-span-attributes-added-by-this-extension). You can view and analyze these attributes with any compatible OpenTelemetry tracing backend such as [Jaeger](https://www.jaegertracing.io/). 
 
 In addition to attaching Span attributes for OpenTelemetry Traces this extension publishes the resource demand data as OpenTelemetry [Metrics](https://opentelemetry.io/docs/concepts/signals/metrics/) for all entry level transactions (e.g., API calls) of an instrumented application. You can find a list of metrics published by this extension in the corresponding [section](#OpenTelemetry-Metrics-published-by-this-extension).  If you are just starting with analyzing the resource demand of your application this is the best starting point for you, before you dig into the span attributes to analyze where exactly the resources are consumed.
 
@@ -18,7 +18,24 @@ Furthermore, the extension follows the [Methodology](https://www.cloudcarbonfoot
 
 *Figure 2: The OpenTelemetry Java-Agent Extension follows the methodology published by the Cloud Carbon Footprint (CCF) project to calculate software energy consumption and carbon emissions based on the collected data*
 
-# Quickstart
+# Two Ways to Integrate
+
+This project provides **two integration modes** — pick the one that fits your application:
+
+| | Java Agent Extension | CDI Library |
+|---|---|---|
+| **Packaging** | Separate JAR attached via `-javaagent` | Plain compile dependency |
+| **OTel SDK lifecycle** | Managed by the OpenTelemetry Java agent | Managed by your framework (e.g. `quarkus-opentelemetry`) |
+| **Startup** | Requires `-javaagent` and `-Dotel.javaagent.extensions` JVM flags | No JVM flags needed |
+| **Quarkus native image** | Not supported | Supported |
+| **Compatible runtimes** | Any JVM application | Any CDI 3.0+ runtime (Quarkus, WildFly, Open Liberty, …) |
+| **Configuration** | System properties / environment variables | Environment variables or `application.properties` forwarded via CDI |
+
+## Option 1 — Java Agent Extension (recommended for non-CDI apps)
+
+Suitable for any JVM application where you can pass JVM flags. The OpenTelemetry Java agent handles all instrumentation; this extension is loaded as a plugin.
+
+### Quickstart (Java Agent Extension)
 
 In order to use the extension with your app you need to [download the latest version](https://github.com/RETIT/opentelemetry-javaagent-extension/releases) and attach it to the start command using the -Dotel.javaagent.extensions parameter along with the [OpenTelemetry Java Auto-Instrumentation agent](https://github.com/open-telemetry/opentelemetry-java-instrumentation/blob/main/README.md#getting-started):
 
@@ -39,6 +56,81 @@ java -javaagent:<replace_with_path>/opentelemetry-javaagent-all.jar \
 -jar <your_app>.jar
 ```
 
+## Option 2 — CDI Library (recommended for Quarkus, WildFly, and other CDI runtimes)
+
+If your application already runs inside a CDI container (e.g. Quarkus with `quarkus-opentelemetry`, WildFly, or Open Liberty), you can add the `opentelemetry-java-agent-extension-cdi-library` as a regular Maven dependency instead of using a Java agent. The library ships a `META-INF/beans.xml` so that any CDI 3.0+ container **auto-discovers** the `RETITSpanProcessorConfiguration` producer bean, which registers the `RETITSpanProcessor` into the existing OTel SDK pipeline — no boilerplate required in your application code.
+
+### CDI Library Quick Start
+
+**1. Add the dependency** (published to [GitHub Packages](https://github.com/RETIT/opentelemetry-javaagent-extension/packages)):
+
+```xml
+<dependency>
+    <groupId>io.retit</groupId>
+    <artifactId>opentelemetry-java-agent-extension-cdi-library</artifactId>
+    <version><!-- latest release tag, e.g. v0.0.20-alpha --></version>
+</dependency>
+```
+
+Also add the GitHub Packages repository to your `pom.xml`, since it is not available on Maven Central:
+
+```xml
+<repositories>
+    <repository>
+        <id>github</id>
+        <name>GitHub RETIT Apache Maven Packages</name>
+        <url>https://maven.pkg.github.com/RETIT/opentelemetry-javaagent-extension</url>
+    </repository>
+</repositories>
+```
+
+> **Authentication required:** GitHub Packages requires a GitHub personal access token (PAT) with the `read:packages` scope, even for public packages. Add the following to your `~/.m2/settings.xml`:
+>
+> ```xml
+> <settings>
+>   <servers>
+>     <server>
+>       <id>github</id>
+>       <username>YOUR_GITHUB_USERNAME</username>
+>       <password>YOUR_GITHUB_PAT</password>
+>     </server>
+>   </servers>
+> </settings>
+> ```
+>
+> You can create a PAT at **GitHub → Settings → Developer settings → Personal access tokens** with the `read:packages` scope.
+
+For Quarkus, `quarkus-opentelemetry` must also be present (usually already in a Quarkus project):
+
+```xml
+<dependency>
+    <groupId>io.quarkus</groupId>
+    <artifactId>quarkus-opentelemetry</artifactId>
+</dependency>
+```
+
+**2. Configure** via environment variables (same options as the agent, see [Configuration Options](#configuration-options)):
+
+```bash
+IO_RETIT_EMISSIONS_CLOUD_PROVIDER=AWS
+IO_RETIT_EMISSIONS_CLOUD_PROVIDER_REGION=eu-central-1
+IO_RETIT_EMISSIONS_CLOUD_PROVIDER_INSTANCE_TYPE=m5.large
+```
+
+Or in `application.properties` — Quarkus forwards matching `io.retit.*` properties to `System.setProperty()` automatically via the library's built-in CDI bridge:
+
+```properties
+io.retit.emissions.cloud.provider=AWS
+io.retit.emissions.cloud.provider.region=eu-central-1
+io.retit.emissions.cloud.provider.instance.type=m5.large
+```
+
+**3. That's it** — no `-javaagent` flag, no custom configuration class. Every span automatically carries resource-demand attributes and top-level transaction spans are published as OpenTelemetry metrics for SCI/carbon calculations.
+
+See the [quarkus-rest-service-cdi-library example](examples/quarkus-rest-service-cdi-library/README.md) for a complete working example including Docker image build and integration tests.
+
+---
+
 # Building the project
 
 In order to build the project from source, you need to have JDK 21 or higher installed. To build the whole project including the examples you need to run the following maven command from the top level of this project:
@@ -53,9 +145,9 @@ For examples on how to use this project for different application types, please 
 
 In the [examples](examples/README.md) directory you will find examples for different scenarios in which you can use this this extension, for example:
 
-| In a simple [JDK8-based application](examples/simple-jdk8-application/README.md) | In a simple [JDK21-based application](examples/simple-jdk21-application/README.md) | In a [Quarkus-based REST service](examples/quarkus-rest-service/README.md) | In a [Spring-based REST service](examples/spring-rest-service/README.md) |
-|----------------------------------------------------------------------------------|------------------------------------------------------------------------------------|----------------------------------------------------------------------------|--------------------------------------------------------------------------|
-| <img src="/img/jdk8_dashboard.png" width="250" />                                | <img src="/img/jdk21_dashboard.png" width="275" />                                 | <img src="/img/quarkus_dashboard.png" width="260" />                       | <img src="/img/spring_dashboard.png" width="280" />                      |
+| In a simple [JDK8-based application](examples/simple-jdk8-application/README.md) | In a simple [JDK21-based application](examples/simple-jdk21-application/README.md) | In a [Quarkus-based REST service](examples/quarkus-rest-service/README.md) | In a [Spring-based REST service](examples/spring-rest-service/README.md) | In a [Quarkus REST service using the CDI library](examples/quarkus-rest-service-cdi-library/README.md) (no Java agent) |
+|----------------------------------------------------------------------------------|------------------------------------------------------------------------------------|----------------------------------------------------------------------------|--------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------|
+| <img src="/img/jdk8_dashboard.png" width="250" />                                | <img src="/img/jdk21_dashboard.png" width="275" />                                 | <img src="/img/quarkus_dashboard.png" width="260" />                       | <img src="/img/spring_dashboard.png" width="280" />                      | <img src="/img/quarkus_dashboard.png" width="260" />                                                                |
 
 
 # Configuration Options
@@ -71,6 +163,7 @@ Configuration options specific to this extension are listed below. All configura
  | IO_RETIT_LOG_DISK_DEMAND | true/false                                                         | false                                      | If set to true storage demand is captured for every span (Works only on Linux-based systems with a Kernel version higher than 3.14).                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | IO_RETIT_LOG_NETWORK_DEMAND | true/false                                                         | false                                      | If set to true network demand is captured for every span (Works only on Linux-based systems with a Kernel version higher than 3.14).                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | IO_RETIT_LOG_GC_EVENT | true/false                                                         | true                                       | If set to true a garbage event listener is registered to capture garbage collection events.                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| IO_RETIT_METRICS_EXCLUDED_ATTRIBUTES | comma separated list of attribute name prefixes | see [OpenTelemetry Metrics published by this extension](#opentelemetry-metrics-published-by-this-extension) | Span attributes starting with one of these prefixes are not published as attributes of the io.retit.resource.demand.* metrics. The configured list replaces the default list, so copy the default list and adjust it if you only want to add or remove single entries. Attributes starting with io.retit are always excluded. Every distinct attribute value creates a new time series, so attributes with a high cardinality (e.g., attributes containing IDs) should always be excluded. Example: "network,thread,user,client,instance,url.full,url.fragment,http.request.header,http.response.header,session,enduser,messaging.message.id,messaging.message.conversation_id,db.statement,db.query.text" (publishes url.query) |
 | IO_RETIT_EMISSIONS_CLOUD_PROVIDER | AWS/Azure/GCP/OnPremise                                            | -                                          | Specifies the cloud provider for this process. Use "OnPremise" for on-premise infrastructure. Please note that for on-premise instrastructure you need to specify the other configuration operations starting with IO_RETIT_EMISSIONS_ONPREMISE_* as well                                                                                                                                                                                                                                                                                                                 |
 | IO_RETIT_EMISSIONS_CLOUD_PROVIDER_REGION | regions of the corresponding cloud provider                        | -                                          | Specifies the cloud provider region for this process. Not required for on-premise.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | IO_RETIT_EMISSIONS_CLOUD_PROVIDER_INSTANCE_TYPE | virtual machine instance types of the corresponding cloud provider | -                                          | Specifies the cloud provider virtual machine instance type for this process. Not required for on-premise.                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
@@ -88,22 +181,52 @@ Configuration options specific to this extension are listed below. All configura
 
 Furthermore, it publishes OpenTelemetry metrics including this data for all entry level transactions (e.g., API calls) of an application. These metrics are called as follows:
 
-    io.retit.resource.demand.storage.bytes
-    io.retit.resource.demand.memory.bytes
-    io.retit.resource.demand.network.bytes
-    io.retit.resource.demand.cpu.ms
+    io.retit.resource.demand.storage.bytes - storage demand of a transaction in bytes
+    io.retit.resource.demand.memory.bytes - memory demand of a transaction in bytes
+    io.retit.resource.demand.network.bytes - network demand of a transaction in bytes
+    io.retit.resource.demand.cpu.ms - CPU demand of a transaction in ms
+
+In addition, the total CPU time of the Java process (summed over all threads and cores) is published in ms:
+
+    io.retit.emissions.java.process.cpu.time - CPU time of the Java process in ms
+
+Please note that this counter has no unit set, so its Prometheus name has no unit suffix (`io_retit_emissions_java_process_cpu_time_total`), whereas the transaction CPU demand includes it (`io_retit_resource_demand_cpu_ms_milliseconds_total`). Both values are in ms.
+
+The resource demand metrics carry the attributes of the corresponding span (e.g., http.request.method, http.route, url.path) so that they can be grouped by transaction. Attributes that would create a new time series for (almost) every transaction or contain personal data are not published. By default, these are all attributes starting with one of the following prefixes:
+
+    network, thread, user (incl. user_agent), client, instance, url.query, url.full, url.fragment,
+    http.request.header, http.response.header, session, enduser, messaging.message.id,
+    messaging.message.conversation_id, db.statement, db.query.text
+
+This default list can be replaced using the IO_RETIT_METRICS_EXCLUDED_ATTRIBUTES configuration option. Attributes starting with io.retit (the raw resource demand measurements of the span) are always excluded. If your application distinguishes transactions only by query parameters (e.g., /controller?action=list), you can remove url.query from the list, but only if the query strings do not contain IDs or personal data. If the url.path of your application contains IDs (e.g., /customers/4711), you should exclude url.path and use http.route instead.
 
 If the cloud provider and its region is configured, also emission related metrics are being published:
 
-    io.retit.emissions.cpu.power.min -  minimum power consumption of the CPU in Idle
-    io.retit.emissions.cpu.power.max -  maximum power consumption of the CPU at 100% utilization
+    io.retit.emissions.cpu.power.min -  minimum power consumption of the CPU in Idle in Watts per vCPU
+    io.retit.emissions.cpu.power.max -  maximum power consumption of the CPU at 100% utilization in Watts per vCPU
+    io.retit.emissions.instance.vcpu.count - number of vCPUs of the instance
     io.retit.emissions.embodied.emissions.minute.mg - embodied emissions per minute in mg
     io.retit.emissions.memory.energy.gb.minute -  Memory energy consumption in kWh per GB per minute
     io.retit.emissions.storage.energy.gb.minute - Storage energy consumption in kWh per GB per minute
     io.retit.emissions.network.energy.gb.minute - Network energy consumption in kWh per GB per minute
     io.retit.emissions.pue - Power Usage Effectiveness (PUE) value of the datacenter
-    io.retit.emissions.gef - Grid Emissions Factor (GEF)
-    
+    io.retit.emissions.gef - Grid Emissions Factor (GEF) in kg CO2e per kWh
+
+The example Grafana dashboards in `examples/docker/grafana` calculate the SCI value per minute in gCO2eq for a group of transactions (e.g., all GET requests) as follows (all `rate()` values are per second):
+
+    vCPU      = io.retit.emissions.instance.vcpu.count
+    CPUutil   = rate(io.retit.emissions.java.process.cpu.time) / 1000 / vCPU
+    CPUutilT  = rate(io.retit.resource.demand.cpu.ms) / rate(io.retit.emissions.java.process.cpu.time)
+    Pcpu      = vCPU * (cpu.power.min + CPUutil * (cpu.power.max - cpu.power.min))      [W]
+    PTcpu     = Pcpu * PUE * CPUutilT                                                   [W]
+    Ecpu      = PTcpu / 60 / 1000                                                       [kWh per minute]
+    cCPU      = Ecpu * GEF * 1000                                                       [g per minute]
+    cMEM      = rate(io.retit.resource.demand.memory.bytes) * 60 * 10^-9 * memory.energy.gb.minute * PUE * GEF * 1000  [g per minute]
+    MT        = embodied.emissions.minute.mg / 1000 * CPUutilT                          [g per minute]
+    SCIT      = cCPU + cMEM + MT                                                        [g per minute]
+
+To get the SCI value per transaction, divide SCIT by the number of transactions per minute.
+
 This data can later be used to calculate the carbon intensity of the application or of each API call (e.g., using SCI as shown in our work presented at the [Symposium on Software Performance 2024](https://fb-swt.gi.de/fileadmin/FB/SWT/Softwaretechnik-Trends/Verzeichnis/Band_44_Heft_4/SSP24_16_camera-ready_5255.pdf)).
 
 # OpenTelemetry Tracing Span attributes added by this extension

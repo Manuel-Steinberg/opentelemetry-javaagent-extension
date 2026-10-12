@@ -2,6 +2,11 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <artifactId>extension</artifactId>
+    <description>
+        Shaded uber-JAR loaded by the OpenTelemetry Java agent via -Dotel.javaagent.extensions.
+        Distributed as a GitHub Release asset, not as a Maven dependency — deployment to GitHub
+        Packages is intentionally skipped.
+    </description>
 
     <parent>
         <groupId>io.retit</groupId>
@@ -9,13 +14,18 @@
         <version>0.0.1-SNAPSHOT</version>
     </parent>
 
+    <properties>
+        <!-- This module is a shaded agent JAR distributed via GitHub Releases, not a Maven library -->
+        <maven.deploy.skip>true</maven.deploy.skip>
+    </properties>
+
     <dependencies>
-        <!-- Apache 2.0 License https://github.com/open-telemetry/opentelemetry-java/blob/main/LICENSE -->
         <dependency>
-            <groupId>io.opentelemetry</groupId>
-            <artifactId>opentelemetry-sdk-extension-autoconfigure-spi</artifactId>
-            <scope>compile</scope>
+            <groupId>io.retit</groupId>
+            <artifactId>core</artifactId>
+            <version>${project.version}</version>
         </dependency>
+
         <!-- Apache 2.0 License https://github.com/google/auto/blob/main/service/README.md -->
         <dependency>
             <groupId>com.google.auto.service</groupId>
@@ -23,13 +33,6 @@
             <version>${auto-service.version}</version>
             <scope>compile</scope>
         </dependency>
-        <!--Java Native Access (JNA) is licensed under the LGPL, version 2.1 or later, or (from version 4.0 onward) the Apache License,version 2.0.-->
-        <!-- https://github.com/java-native-access/jna/blob/master/LICENSE -->
-        <dependency>
-            <groupId>net.java.dev.jna</groupId>
-            <artifactId>jna</artifactId>
-        </dependency>
-
         <!-- Test Dependencies -->
 
         <!-- EPL v2.0 https://github.com/junit-team/junit5/blob/main/LICENSE.md -->
@@ -65,7 +68,7 @@
         <dependency>
             <groupId>io.rest-assured</groupId>
             <artifactId>rest-assured</artifactId>
-            <version>6.0.0</version>
+            <version>6.1.0</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -91,8 +94,15 @@
                                 </excludes>
                             </artifactSet>
                             <filters>
+                                <!-- JNA loads a number of its classes reflectively (e.g. the
+                                     platform specific mappers used by Native.loadLibrary on Windows).
+                                     minimizeJar cannot see those references, so all JNA classes are
+                                     explicitly included to keep them in the shaded artifact. -->
                                 <filter>
                                     <artifact>net.java.dev.jna:*</artifact>
+                                    <includes>
+                                        <include>**/*</include>
+                                    </includes>
                                     <excludes>
                                         <exclude>META-INF/*</exclude>
                                     </excludes>
@@ -106,7 +116,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.15.0</version>
+                <version>3.16.0</version>
                 <configuration>
                     <source>8</source>
                     <target>8</target>
@@ -122,7 +132,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.5.5</version>
+                <version>3.6.0</version>
                 <configuration>
                     <excludes>
                         <exclude>**/*IntegrationTest.java</exclude>

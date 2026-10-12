@@ -18,7 +18,7 @@
 
 	<properties>
 		<java.version>21</java.version>
-		<spring.version>4.0.6</spring.version>
+		<spring.version>4.1.1</spring.version>
 	</properties>
 
 	<dependencies>
@@ -42,7 +42,7 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
-				<version>4.0.6</version>
+				<version>4.1.1</version>
 				<configuration>
 					<mainClass>io.retit.spring.carbon.SpringCarbonEmissionsApplication</mainClass>
 					<layout>ZIP</layout>
@@ -58,7 +58,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-dependency-plugin</artifactId>
-				<version>3.10.0</version>
+				<version>3.11.0</version>
 				<executions>
 					<execution>
 						<id>copy-opentelemetry</id>
@@ -160,7 +160,7 @@
 					<plugin>
 						<groupId>org.codehaus.mojo</groupId>
 						<artifactId>exec-maven-plugin</artifactId>
-						<version>3.6.3</version>
+						<version>3.6.4</version>
 						<executions>
 							<execution>
 								<id>podman-load</id>
