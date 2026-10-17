@@ -2,15 +2,15 @@
 
 ## Why software energy consumption matters
 
-The ICT sector accounts for somewhere between 2 and 4 percent of global greenhouse gas emissions, depending on how far up the supply chain you count [1], which is comparable to aviation [2]. EU sustainability regulations are tightening, most notably the Corporate Sustainability Reporting Directive (CSRD) [3], and customers increasingly ask about the carbon footprint of their services. The Green Software Foundation's **Software Carbon Intensity (SCI)** specification, now ISO/IEC 21031:2024 [4], standardizes software emissions per functional unit of work. Attributing energy consumption to a specific Java application or a single HTTP transaction requires measurement and modeling.
+The ICT sector accounts for somewhere between 2 and 4 percent of global greenhouse gas emissions, depending on how far up the supply chain you count [1], which is comparable to aviation [2]. EU sustainability regulations are tightening, most notably the Corporate Sustainability Reporting Directive (CSRD) [3], and customers ask about the carbon footprint of their services. The Green Software Foundation's **Software Carbon Intensity (SCI)** specification, now ISO/IEC 21031:2024 [4], standardizes software emissions per functional unit of work. Attributing energy consumption to a specific Java application or a single HTTP transaction requires measurement and modeling.
 
 Specialized tools like JoularJX [5] read Intel's RAPL interface, which reports socket-level energy consumption from on-chip counters, sampled at short intervals [15]. RAPL is itself model-based on several processor generations, but it is the closest thing to a hardware reference a server offers. It requires direct hardware access, which is heavily limited on virtualized cloud instances, e.g., AWS, Google Cloud or Azure. Model-based tools instead estimate energy from metrics that *are* available in the cloud, such as CPU time, heap allocation, disk and network I/O, and map them to power draw using published power data for the underlying hardware. The approach needs no specialized infrastructure, no root access, and no application-code changes.
 
-This article walks through one such tool, the OpenTelemetry Java Agent Extension (OTJAE), from zero to per-transaction CO2eq estimates.
+Following I am going to show how OTJAE produces per-transaction CO2eq estimates.
 
 ## What is OTJAE
 
-OTJAE [6] is an open-source extension for the official OpenTelemetry Java auto-instrumentation agent [7]. If you already use OpenTelemetry, adding OTJAE only requires one JVM flag or dependency. It captures four resource-demand signals for every traced transaction, two of them on by default and two opt-in:
+The OpenTelemetry Java Agent Extension (OTJAE) [6] is an open-source extension for the official OpenTelemetry Java auto-instrumentation agent [7]. If you already use OpenTelemetry, adding OTJAE only requires one JVM flag or dependency. It captures four resource-demand signals for every traced transaction, two of them on by default and two opt-in:
 
 | Dimension | Unit | Platform |
 |-----------|------|----------|
