@@ -23,7 +23,7 @@ These signals feed an energy model that turns resource demand into hardware powe
 
 ![Per-transaction resource demand capture across applications](../img/extension_data_capture.png)
 
-The CCF methodology turns the captured resource demand into power, as described and evaluated in [10, 11]. For CPU, the model takes the CPU utilization of the Java process and interpolates linearly between the processor's idle and maximum power per vCPU. It then attributes that power to an individual transaction according to the transaction's share of the process's CPU demand. The full idle power of the instance is therefore assigned to the JVM, which fits a container or VM that runs a single service. For memory, storage, and network, the model multiplies each transaction's demand by a CCF energy coefficient per GB.
+The CCF methodology turns the captured resource demand into power, as described and evaluated in [10, 11]. For CPU, the model takes the CPU utilization of the Java process and interpolates linearly between the processor's idle and maximum power per vCPU. It then attributes that power to an individual transaction according to the transaction's share of the process's CPU demand. The full idle power of the instance is therefore assigned to the JVM, which fits a container or VM that runs a single service. For memory, storage, and network, the model multiplies each transaction's demand by a CCF energy coefficient per GB. The pre-built dashboards currently include only CPU and memory in the SCI.
 
 Multiplying the attributed power by time gives energy. The model converts that energy to emissions using the region's grid emissions factor and adds a prorated share of the hardware's embodied emissions, the carbon released when the hardware was manufactured.
 
@@ -218,7 +218,7 @@ OTJAE publishes the resource demand of each transaction as four counters: `io.re
 
 OTJAE is built for synchronous request processing: resource-demand values are only valid when the thread that starts a span is the one that ends it. For reactive frameworks and virtual threads, where work can migrate between threads, OTJAE does not publish metrics it cannot attribute reliably.
 
-Emissions configuration metrics, published as OpenTelemetry gauges, carry the model's constants: idle and peak CPU power, the instance's vCPU count, grid emissions factor, PUE, and embodied emissions. The pre-built dashboards feed them into the SCI queries to compute CO2eq directly in Grafana. Most of them are also plotted in the Emission Calculation Factors panel.
+Emissions configuration metrics, published as OpenTelemetry gauges, include the model's constants, such as idle and peak CPU power, the instance's vCPU count, grid emissions factor, PUE, and embodied emissions. The pre-built dashboards feed them into the SCI queries to compute CO2eq in Grafana. Most of them are also plotted in the Emission Calculation Factors panel.
 
 ## Accuracy in practice
 
