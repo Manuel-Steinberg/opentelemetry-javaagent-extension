@@ -2,9 +2,9 @@
 
 ## Why software energy consumption matters
 
-Depending on how far up the supply chain you count, the ICT sector accounts for somewhere between 2 and 4 percent of global greenhouse gas emissions [1], which is comparable to aviation [2]. EU sustainability regulations are tightening, most notably the Corporate Sustainability Reporting Directive (CSRD) [3], and customers ask about the carbon footprint of the services they buy. The Green Software Foundation's Software Carbon Intensity (SCI) specification, now ISO/IEC 21031:2024 [4], standardizes software emissions per functional unit of work. But to pin energy on one Java application, or even a single HTTP request, you need both measurement and a model.
+Depending on how far up the supply chain you count, the ICT sector accounts for somewhere between 2 and 4 percent of global greenhouse gas emissions [1], which is comparable to aviation [2]. EU sustainability regulations are tightening, most notably the Corporate Sustainability Reporting Directive (CSRD) [3], and customers ask about the carbon footprint of the services they buy. The Green Software Foundation's Software Carbon Intensity (SCI) specification, now ISO/IEC 21031:2024 [4], standardizes software emissions per functional unit of work. To obtain the actual emission values for a functional unit of work, you need to measure the factors under your control (e.g., resource usage) and derive the factors outside your control (e.g., grid emissions) based on the data.
 
-Specialized tools like JoularJX [5] read Intel's RAPL interface, which reports socket-level energy consumption from on-chip counters, sampled at short intervals [6]. RAPL is itself model-based on several processor generations, but it is the closest thing to a hardware reference a server offers. It needs direct hardware access, which AWS, Google Cloud, and Azure rarely grant on virtual instances. Model-based tools instead estimate energy from metrics that *are* available in the cloud, such as CPU time, heap allocation, disk and network I/O, and map them to power draw using published power data for the underlying hardware. The approach needs neither root access nor changes to the application code.
+Specialized tools like JoularJX [5] read Intel's RAPL interface, which reports socket-level energy consumption from on-chip counters, sampled at short intervals [6]. RAPL is itself model-based on several processor generations, but it is the closest thing to a hardware reference a server offers. It needs direct hardware access, which AWS, Google Cloud, and Azure rarely grant on virtual instances. Model-based tools instead estimate energy from metrics that *are* available in the cloud, such as CPU time, heap allocation, disk and network I/O, and map them to power draw using published power data for the underlying hardware. Such model-based approaches need neither root access nor changes to the application code.
 
 ## What is OTJAE
 
@@ -222,13 +222,11 @@ Emissions configuration metrics, published as OpenTelemetry gauges, include the 
 
 ## Accuracy in practice
 
-A peer-reviewed study presented at the DevOpsSustain 2025 workshop [10] compared OTJAE's process-level estimate against RAPL readings on a bare-metal Xeon server (OTJAE v0.0.15-alpha). The dashboards in v0.1.3-beta implement the same model: recomputed with the study's measurement data, they reproduce its published per-transaction power values within 1.5 percent. The estimate got closer to RAPL as load increased. OTJAE's estimate ranged from 59 percent of the RAPL-measured power at 25 percent CPU utilization to 98 percent at 98 percent utilization, and stayed below RAPL at every load level.
+A peer-reviewed study presented at the DevOpsSustain 2025 workshop [10] compared OTJAE's process-level estimate against RAPL readings on a bare-metal dual-socket Intel Xeon-based server (OTJAE v0.0.15-alpha). The dashboards in v0.1.3-beta implement the same model: recomputed with the study's measurement data, they reproduce its published per-transaction power values within 1.5 percent. The estimate got closer to RAPL as load increased. OTJAE's estimate ranged from 59 percent of the RAPL-measured power at 25 percent CPU utilization to 98 percent at 98 percent utilization, and stayed below RAPL at every load level.
 
-The gap at low load is expected: power does not scale linearly with utilization. The study measured at process level on bare metal. The virtualized environments OTJAE is built for have not been validated this way.
+The gap at low load is expected: power does not scale linearly with utilization. The study measured at process level on bare metal. Below roughly 30 percent sustained CPU utilization, treat OTJAE numbers as a lower bound rather than an absolute figure. Above that, they are accurate enough for comparing endpoints and tracking changes over time.
 
 OTJAE reads resource-demand values twice per span, at start and at end. In the validation study [10], the overhead was too small to measure: across three load levels, CPU utilization stayed within 1.5 percentage points and system power within about 1 W of the uninstrumented baseline.
-
-Below roughly 30 percent sustained CPU utilization, treat OTJAE numbers as a lower bound rather than an absolute figure. Above that, they are accurate enough for comparing endpoints and tracking changes over time.
 
 ## What to try next
 
@@ -251,8 +249,6 @@ OTJAE is still in beta. At the time of writing (October 2026), the latest releas
 ### About the author
 
 Manuel Steinberg is a PhD candidate at Hochschule München (Munich University of Applied Sciences). His research focuses on measuring the energy footprint of software applications.
-
-*Disclosure: OTJAE is developed by RETIT GmbH.*
 
 ## References
 
